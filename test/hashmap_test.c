@@ -414,6 +414,33 @@ bool test_iterate(struct hashmap *map, void **keys)
 	return true;
 }
 
+bool test_iterate_remove(struct hashmap *map, void **keys)
+{
+	size_t i = 0;
+	void *iter = hashmap_iter(map);
+	const void *key;
+
+	while (iter) {
+		++i;
+		key = hashmap_iter_get_key(iter);
+		if (hashmap_get(map, key) != key) {
+			printf("invalid iterator on entry #%zu\n", i);
+			return false;
+		}
+		iter = hashmap_iter_remove(map, iter);
+		if (hashmap_get(map, key) != NULL) {
+			printf("iter_remove failed on entry #%zu\n", i);
+			return false;
+		}
+	}
+	if (i != TEST_NUM_KEYS) {
+		printf("did not iterate through all entries: "
+		    "observed %zu, expected %u\n", i, TEST_NUM_KEYS);
+		return false;
+	}
+	return true;
+}
+
 struct test_foreach_arg {
 	struct hashmap *map;
 	size_t i;
@@ -502,6 +529,12 @@ const struct test const tests[] = {
 		.name = "iterate performance",
 		.description = "iterate through entries",
 		.run = test_iterate,
+		.pre_load = true
+	},
+	{
+		.name = "iterate remove all",
+		.description = "iterate and remove all entries",
+		.run = test_iterate_remove,
 		.pre_load = true
 	},
 	{

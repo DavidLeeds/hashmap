@@ -129,11 +129,11 @@ static struct hashmap_entry *hashmap_entry_find(const struct hashmap *map,
 }
 
 /*
- * Clears the specified entry and processes the proceeding entries to reduce
+ * Removes the specified entry and processes the proceeding entries to reduce
  * the load factor and keep the chain continuous.  This is a required
  * step for hash maps using linear probing.
  */
-static void hashmap_entry_clear(const struct hashmap *map,
+static void hashmap_entry_remove(struct hashmap *map,
 	struct hashmap_entry *removed_entry)
 {
 	size_t i;
@@ -144,6 +144,12 @@ static void hashmap_entry_clear(const struct hashmap *map,
 	size_t entry_index;
 	size_t removed_index = (removed_entry - map->table);
 	struct hashmap_entry *entry;
+
+	/* Free the key */
+	if (map->key_free) {
+		map->key_free(removed_entry->key);
+	}
+	--map->num_entries;
 
 	/* Fill the free slot in the chain */
 	index = HASHMAP_PROBE_NEXT(map, removed_index);
@@ -312,7 +318,6 @@ void hashmap_set_key_alloc_funcs(struct hashmap *map,
  * pointer is returned, instead of assigning the new value.  Compare
  * the return value with the data passed in to determine if a new entry was
  * created.  Returns NULL if memory allocation failed.
- *
  */
 void *hashmap_put(struct hashmap *map, const void *key, void *data)
 {
@@ -392,14 +397,9 @@ void *hashmap_remove(struct hashmap *map, const void *key)
 	if (!entry) {
 		return NULL;
 	}
-	/* Remove the entry */
-	if (map->key_free) {
-		map->key_free(entry->key);
-	}
 	data = entry->data;
-	--map->num_entries;
 	/* Clear the entry and make the chain contiguous */
-	hashmap_entry_clear(map, entry);
+	hashmap_entry_remove(map, entry);
 	return data;
 }
 
@@ -451,6 +451,7 @@ size_t hashmap_size(const struct hashmap *map)
  * Get a new hashmap iterator.  The iterator is an opaque
  * pointer that may be used with hashmap_iter_*() functions.
  * Hashmap iterators are INVALID after a put or remove operation is performed.
+ * hashmap_iter_remove() allows safe removal during iteration.
  */
 void *hashmap_iter(const struct hashmap *map)
 {
@@ -476,6 +477,27 @@ void *hashmap_iter_next(const struct hashmap *map, const void *iter)
 		return NULL;
 	}
 	return hashmap_entry_get_populated(map, entry + 1);
+}
+
+/*
+ * Remove the hashmap entry pointed to by this iterator and return an
+ * iterator to the next entry.  Returns NULL if there are no more entries.
+ */
+void *hashmap_iter_remove(struct hashmap *map, const void *iter)
+{
+	struct hashmap_entry *entry = (struct hashmap_entry *)iter;
+
+	assert(map != NULL);
+
+	if (!iter) {
+		return NULL;
+	}
+	if (!entry->key) {
+		/* Iterator is invalid, so just return the next valid entry */
+		return hashmap_iter_next(map, iter);
+	}
+	hashmap_entry_remove(map, entry);
+	return hashmap_entry_get_populated(map, entry);
 }
 
 /*

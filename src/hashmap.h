@@ -131,7 +131,6 @@ void hashmap_set_key_alloc_funcs(struct hashmap *map,
  * pointer is returned, instead of assigning the new value.  Compare
  * the return value with the data passed in to determine if a new entry was
  * created.  Returns NULL if memory allocation failed.
- *
  */
 void *hashmap_put(struct hashmap *map, const void *key, void *data);
 
@@ -165,6 +164,7 @@ size_t hashmap_size(const struct hashmap *map);
  * Get a new hashmap iterator.  The iterator is an opaque
  * pointer that may be used with hashmap_iter_*() functions.
  * Hashmap iterators are INVALID after a put or remove operation is performed.
+ * hashmap_iter_remove() allows safe removal during iteration.
  */
 void *hashmap_iter(const struct hashmap *map);
 
@@ -173,6 +173,12 @@ void *hashmap_iter(const struct hashmap *map);
  * no more entries.
  */
 void *hashmap_iter_next(const struct hashmap *map, const void *iter);
+
+/*
+ * Remove the hashmap entry pointed to by this iterator and returns an
+ * iterator to the next entry.  Returns NULL if there are no more entries.
+ */
+void *hashmap_iter_remove(struct hashmap *map, const void *iter);
 
 /*
  * Return the key of the entry pointed to by the iterator.
