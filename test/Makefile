@@ -5,7 +5,7 @@ TARGET_EXEC := hashmap_test
 
 SOURCES := $(SRC_DIR)/hashmap.c hashmap_test.c
 
-CFLAGS += -O0 -g -ggdb -Wall -Wunused -Werror -I$(SRC_DIR)
+CFLAGS += -O0 -g -ggdb -Wall -Wunused -Werror -I$(SRC_DIR) -DHASHMAP_METRICS
 
 OBJS := $(SOURCES:%.c=%.o)
 

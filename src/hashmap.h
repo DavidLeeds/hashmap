@@ -12,7 +12,7 @@
  * Define HASHMAP_METRICS to compile in performance analysis
  * functions for use in assessing hash function performance.
  */
-#define HASHMAP_METRICS
+/* #define HASHMAP_METRICS */
 
 /*
  * Macros to declare type-specific versions of hashmap_*() functions to
