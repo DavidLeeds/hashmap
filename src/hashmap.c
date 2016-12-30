@@ -274,6 +274,7 @@ int hashmap_init(struct hashmap *map, size_t (*hash_func)(const void *),
 	}
 	map->table_size_init = initial_size;
 	map->table_size = initial_size;
+	map->num_entries = 0;
 	map->table = (struct hashmap_entry *)calloc(initial_size,
 	    sizeof(struct hashmap_entry));
 	if (!map->table) {
@@ -281,7 +282,8 @@ int hashmap_init(struct hashmap *map, size_t (*hash_func)(const void *),
 	}
 	map->hash = hash_func;
 	map->key_compare = key_compare_func;
-	map->num_entries = 0;
+	map->key_alloc = NULL;
+	map->key_free = NULL;
 	return 0;
 }
 
