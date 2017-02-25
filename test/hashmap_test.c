@@ -43,8 +43,8 @@ struct test {
 /*
  * Test type-specific generation macros
  */
-HASHMAP_FUNCS_DECLARE(test_funcs, const char, struct test)
-HASHMAP_FUNCS_CREATE(test_funcs, const char, struct test)
+HASHMAP_FUNCS_DECLARE(test, const void, void)
+HASHMAP_FUNCS_CREATE(test, const void, void)
 
 
 uint64_t test_time_us(void)
@@ -157,7 +157,7 @@ void test_load_keys(struct hashmap *map, void **keys)
 	void **key;
 
 	for (key = keys; *key; ++key) {
-		if (!hashmap_put(map, *key, *key)) {
+		if (!test_hashmap_put(map, *key, *key)) {
 			printf("hashmap_put() failed");
 			exit(1);
 		}
@@ -268,7 +268,7 @@ bool test_put(struct hashmap *map, void **keys)
 	void *data;
 
 	for (key = keys; *key; ++key) {
-		data = hashmap_put(map, *key, *key);
+		data = test_hashmap_put(map, *key, *key);
 		if (!data) {
 			printf("malloc failed\n");
 			exit(1);
@@ -307,7 +307,7 @@ bool test_get(struct hashmap *map, void **keys)
 	void *data;
 
 	for (key = keys; *key; ++key) {
-		data = hashmap_get(map, *key);
+		data = test_hashmap_get(map, *key);
 		if (!data) {
 			printf("entry not found\n");
 			return false;
@@ -342,7 +342,7 @@ bool test_remove(struct hashmap *map, void **keys)
 	void *data;
 
 	for (key = keys; *key; ++key) {
-		data = hashmap_remove(map, *key);
+		data = test_hashmap_remove(map, *key);
 		if (!data) {
 			printf("entry not found\n");
 			return false;
@@ -368,7 +368,7 @@ bool test_put_remove(struct hashmap *map, void **keys)
 		if (i++ >= TEST_NUM_KEYS / 2) {
 			break;
 		}
-		data = hashmap_remove(map, *key);
+		data = test_hashmap_remove(map, *key);
 		if (!data) {
 			printf("key not found\n");
 			return false;
@@ -384,7 +384,7 @@ bool test_put_remove(struct hashmap *map, void **keys)
 		if (i++ >= TEST_NUM_KEYS / 2) {
 			break;
 		}
-		data = hashmap_put(map, *key, *key);
+		data = test_hashmap_put(map, *key, *key);
 		if (!data) {
 			printf("malloc failed\n");
 			exit(1);
@@ -421,13 +421,13 @@ bool test_iterate_remove(struct hashmap *map, void **keys)
 
 	while (iter) {
 		++i;
-		key = hashmap_iter_get_key(iter);
-		if (hashmap_get(map, key) != key) {
+		key = test_hashmap_iter_get_key(iter);
+		if (test_hashmap_get(map, key) != key) {
 			printf("invalid iterator on entry #%zu\n", i);
 			return false;
 		}
 		iter = hashmap_iter_remove(map, iter);
-		if (hashmap_get(map, key) != NULL) {
+		if (test_hashmap_get(map, key) != NULL) {
 			printf("iter_remove failed on entry #%zu\n", i);
 			return false;
 		}
@@ -451,7 +451,7 @@ int test_foreach_callback(const void *key, void *data, void *arg)
 
 	if (state->i & 1) {
 		/* Remove every other key */
-		if (!hashmap_remove(state->map, key)) {
+		if (!test_hashmap_remove(state->map, key)) {
 			printf("could not remove expected key\n");
 			return -1;
 		}

@@ -19,63 +19,63 @@
  * allow compile-time type checking and avoid the need for type casting.
  */
 #define HASHMAP_FUNCS_DECLARE(name, key_type, data_type)		\
-	data_type *hashmap_##name##_put(struct hashmap *map, key_type *key, \
+	data_type *name##_hashmap_put(struct hashmap *map, key_type *key, \
 		data_type *data);					\
-	data_type *hashmap_##name##_get(struct hashmap *map, key_type *key); \
-	data_type *hashmap_##name##_remove(struct hashmap *map,		\
+	data_type *name##_hashmap_get(struct hashmap *map, key_type *key); \
+	data_type *name##_hashmap_remove(struct hashmap *map,		\
 		key_type *key);						\
-	key_type *hashmap_##name##_iter_get_key(const void *iter);	\
-	data_type *hashmap_##name##_iter_get_data(const void *iter);	\
-	void hashmap_##name##_iter_set_data(const void *iter,		\
+	key_type *name##_hashmap_iter_get_key(const void *iter);	\
+	data_type *name##_hashmap_iter_get_data(const void *iter);	\
+	void name##_hashmap_iter_set_data(const void *iter,		\
 		data_type *data);					\
-	int hashmap_##name##_foreach(const struct hashmap *map,		\
+	int name##_hashmap_foreach(const struct hashmap *map,		\
 		int (*func)(key_type *, data_type *, void *), void *arg);
 
 #define HASHMAP_FUNCS_CREATE(name, key_type, data_type)			\
-	data_type *hashmap_##name##_put(struct hashmap *map, key_type *key, \
+	data_type *name##_hashmap_put(struct hashmap *map, key_type *key, \
 		data_type *data)					\
 	{								\
 		return (data_type *)hashmap_put(map, (const void *)key,	\
 		    (void *)data);					\
 	}								\
-	data_type *hashmap_##name##_get(struct hashmap *map, key_type *key) \
+	data_type *name##_hashmap_get(struct hashmap *map, key_type *key) \
 	{								\
 		return (data_type *)hashmap_get(map, (const void *)key); \
 	}								\
-	data_type *hashmap_##name##_remove(struct hashmap *map,		\
+	data_type *name##_hashmap_remove(struct hashmap *map,		\
 		key_type *key)						\
 	{								\
 		return (data_type *)hashmap_remove(map, (const void *)key); \
 	}								\
-	key_type *hashmap_##name##_iter_get_key(const void *iter)	\
+	key_type *name##_hashmap_iter_get_key(const void *iter)	\
 	{								\
 		return (key_type *)hashmap_iter_get_key(iter);		\
 	}								\
-	data_type *hashmap_##name##_iter_get_data(const void *iter)	\
+	data_type *name##_hashmap_iter_get_data(const void *iter)	\
 	{								\
 		return (data_type *)hashmap_iter_get_data(iter);	\
 	}								\
-	void hashmap_##name##_iter_set_data(const void *iter, data_type *data) \
+	void name##_hashmap_iter_set_data(const void *iter, data_type *data) \
 	{								\
 		hashmap_iter_set_data(iter, (void *)data);		\
 	}								\
-	struct __hashmap_##name##_foreach_state {			\
+	struct __##name##_hashmap_foreach_state {			\
 		int (*func)(key_type *, data_type *, void *);		\
 		void *arg;						\
 	};								\
-	static inline int __hashmap_##name##_foreach_callback(const void *key, \
+	static inline int __##name##_hashmap_foreach_callback(const void *key, \
 		void *data, void *arg)					\
 	{								\
-		struct __hashmap_##name##_foreach_state *s =		\
-		    (struct __hashmap_##name##_foreach_state *)arg;	\
+		struct __##name##_hashmap_foreach_state *s =		\
+		    (struct __##name##_hashmap_foreach_state *)arg;	\
 		return s->func((key_type *)key, (data_type *)data, s->arg); \
 	}								\
-	int hashmap_##name##_foreach(const struct hashmap *map,		\
+	int name##_hashmap_foreach(const struct hashmap *map,		\
 		int (*func)(key_type *, data_type *, void *), void *arg) \
 	{								\
-		struct __hashmap_##name##_foreach_state s = { func, arg }; \
+		struct __##name##_hashmap_foreach_state s = { func, arg }; \
 		return hashmap_foreach(map,				\
-		    __hashmap_##name##_foreach_callback, &s);		\
+		    __##name##_hashmap_foreach_callback, &s);		\
 	}
 
 
