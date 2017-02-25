@@ -81,7 +81,7 @@ void *test_key_alloc_random_str(void)
 		exit(1);
 	}
 	for (i = 0; i < TEST_KEY_STR_LEN; ++i) {
-		num = rand();
+		num = random();
 		num = (num % 96) + 32;	/* ASCII printable only */
 		key[i] = (char)num;
 	}
@@ -90,14 +90,17 @@ void *test_key_alloc_random_str(void)
 }
 void *test_key_alloc_random_int(void)
 {
-	uint32_t *key;
+	uint64_t *key;
 
-	key = (uint32_t *)malloc(sizeof(*key));
+	key = (uint64_t *)malloc(sizeof(*key));
 	if (!key) {
 		printf("malloc failed\n");
 		exit(1);
 	}
-	*key = (uint32_t)rand();
+	/* RAND_MAX is not guaranteed to be more than 32K */
+	*key = (uint64_t)((random() & 0xffff) << 48 |
+	    (random() & 0xffff) << 32 | (random() & 0xffff) << 16 |
+	    (random() & 0xffff));
 	return key;
 }
 
@@ -116,9 +119,9 @@ void *test_key_alloc_sequential_str(size_t index)
 
 void *test_key_alloc_sequential_int(size_t index)
 {
-	uint32_t *key;
+	uint64_t *key;
 
-	key = (uint32_t *)malloc(sizeof(*key));
+	key = (uint64_t *)malloc(sizeof(*key));
 	if (!key) {
 		printf("malloc failed\n");
 		exit(1);
@@ -131,7 +134,7 @@ void test_keys_generate(void)
 {
 	size_t i;
 
-	srand(99);	/* Use reproducible random sequences */
+	srandom(99);	/* Use reproducible random sequences */
 
 	keys_str_random =  test_keys_alloc(TEST_NUM_KEYS + 1);
 	keys_str_sequential =  test_keys_alloc(TEST_NUM_KEYS + 1);
@@ -237,13 +240,13 @@ bool test_run_all(struct hashmap *map, void **keys,
 	return (num_failed == 0);
 }
 
-size_t test_hash_uint(const void *key)
+size_t test_hash_uint64(const void *key)
 {
 	const uint8_t *byte = (const uint8_t *)key;
 	uint8_t i;
 	size_t hash = 0;
 
-	for (i = 0; i < sizeof(uint32_t); ++i, ++byte) {
+	for (i = 0; i < sizeof(uint64_t); ++i, ++byte) {
 		hash += *byte;
 		hash += (hash << 10);
 		hash ^= (hash >> 6);
@@ -253,14 +256,10 @@ size_t test_hash_uint(const void *key)
 	hash += (hash << 15);
 	return hash;
 }
-size_t test_hash_uint_worst(const void *key)
-{
-	return 0;
-}
 
-int test_compare_uint(const void *a, const void *b)
+int test_compare_uint64(const void *a, const void *b)
 {
-	return *(int32_t *)a - *(int32_t *)b;
+	return *(int64_t *)a - *(int64_t *)b;
 }
 
 bool test_put(struct hashmap *map, void **keys)
@@ -539,7 +538,7 @@ const struct test const tests[] = {
 	},
 	{
 		.name = "removal in foreach",
-		.description = "iterate and delete using hashmap_foreach",
+		.description = "iterate and delete 1/2 using hashmap_foreach",
 		.run = test_foreach,
 		.pre_load = true
 	},
@@ -573,7 +572,8 @@ int main(int argc, char **argv)
 	/*
 	hashmap_set_key_alloc_funcs(&str_map, hashmap_alloc_key_string, free);
 	*/
-	if (hashmap_init(&int_map, test_hash_uint, test_compare_uint, 0) < 0) {
+	if (hashmap_init(&int_map, test_hash_uint64, test_compare_uint64,
+	    0) < 0) {
 		success = false;
 	}
 	printf("done\n");
@@ -593,11 +593,9 @@ int main(int argc, char **argv)
 	success &= test_run_all(&str_map, keys_str_sequential, tests,
 	    ARRAY_LEN(tests), "Hashmap w/sequential string keys");
 
-	/* XXX Omitting random int keys because rand() produces duplicates */
-	/*
 	success &= test_run_all(&int_map, keys_int_random, tests,
 	    ARRAY_LEN(tests), "Hashmap w/randomized integer keys");
-	*/
+
 	success &= test_run_all(&int_map, keys_int_sequential, tests,
 	    ARRAY_LEN(tests), "Hashmap w/sequential integer keys");
 
@@ -607,7 +605,7 @@ int main(int argc, char **argv)
 	hashmap_destroy(&int_map);
 
 	if (!success) {
-		printf("Tests failed");
+		printf("Tests FAILED\n");
 		exit(1);
 	}
 	return 0;
