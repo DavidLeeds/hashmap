@@ -465,7 +465,7 @@ bool test_foreach(struct hashmap *map, void **keys)
 	struct test_foreach_arg arg = { map, 1 };
 	size_t size = hashmap_size(map);
 
-	if (hashmap_foreach(map, test_foreach_callback, &arg) < 0) {
+	if (test_hashmap_foreach(map, test_foreach_callback, &arg) < 0) {
 		return false;
 	}
 	if (hashmap_size(map) != size / 2) {
