@@ -24,9 +24,11 @@
 	data_type *name##_hashmap_get(struct hashmap *map, key_type *key); \
 	data_type *name##_hashmap_remove(struct hashmap *map,		\
 		key_type *key);						\
-	key_type *name##_hashmap_iter_get_key(const void *iter);	\
-	data_type *name##_hashmap_iter_get_data(const void *iter);	\
-	void name##_hashmap_iter_set_data(const void *iter,		\
+	key_type *name##_hashmap_iter_get_key(				\
+		const struct hashmap_iter *iter);			\
+	data_type *name##_hashmap_iter_get_data(			\
+		const struct hashmap_iter *iter);			\
+	void name##_hashmap_iter_set_data(const struct hashmap_iter *iter, \
 		data_type *data);					\
 	int name##_hashmap_foreach(const struct hashmap *map,		\
 		int (*func)(key_type *, data_type *, void *), void *arg);
@@ -47,15 +49,18 @@
 	{								\
 		return (data_type *)hashmap_remove(map, (const void *)key); \
 	}								\
-	key_type *name##_hashmap_iter_get_key(const void *iter)	\
+	key_type *name##_hashmap_iter_get_key(				\
+		const struct hashmap_iter *iter)			\
 	{								\
 		return (key_type *)hashmap_iter_get_key(iter);		\
 	}								\
-	data_type *name##_hashmap_iter_get_data(const void *iter)	\
+	data_type *name##_hashmap_iter_get_data(			\
+		const struct hashmap_iter *iter)			\
 	{								\
 		return (data_type *)hashmap_iter_get_data(iter);	\
 	}								\
-	void name##_hashmap_iter_set_data(const void *iter, data_type *data) \
+	void name##_hashmap_iter_set_data(const struct hashmap_iter *iter, \
+		data_type *data) 					\
 	{								\
 		hashmap_iter_set_data(iter, (void *)data);		\
 	}								\
@@ -79,6 +84,7 @@
 	}
 
 
+struct hashmap_iter;
 struct hashmap_entry;
 
 /*
@@ -166,34 +172,36 @@ size_t hashmap_size(const struct hashmap *map);
  * Hashmap iterators are INVALID after a put or remove operation is performed.
  * hashmap_iter_remove() allows safe removal during iteration.
  */
-void *hashmap_iter(const struct hashmap *map);
+struct hashmap_iter *hashmap_iter(const struct hashmap *map);
 
 /*
  * Return an iterator to the next hashmap entry.  Returns NULL if there are
  * no more entries.
  */
-void *hashmap_iter_next(const struct hashmap *map, const void *iter);
+struct hashmap_iter *hashmap_iter_next(const struct hashmap *map,
+	const struct hashmap_iter *iter);
 
 /*
  * Remove the hashmap entry pointed to by this iterator and returns an
  * iterator to the next entry.  Returns NULL if there are no more entries.
  */
-void *hashmap_iter_remove(struct hashmap *map, const void *iter);
+struct hashmap_iter *hashmap_iter_remove(struct hashmap *map,
+	const struct hashmap_iter *iter);
 
 /*
  * Return the key of the entry pointed to by the iterator.
  */
-const void *hashmap_iter_get_key(const void *iter);
+const void *hashmap_iter_get_key(const struct hashmap_iter *iter);
 
 /*
  * Return the data of the entry pointed to by the iterator.
  */
-void *hashmap_iter_get_data(const void *iter);
+void *hashmap_iter_get_data(const struct hashmap_iter *iter);
 
 /*
  * Set the data pointer of the entry pointed to by the iterator.
  */
-void hashmap_iter_set_data(const void *iter, void *data);
+void hashmap_iter_set_data(const struct hashmap_iter *iter, void *data);
 
 /*
  * Invoke func for each entry in the hashmap.  Unlike the hashmap_iter_*()

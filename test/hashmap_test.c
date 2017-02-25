@@ -400,7 +400,7 @@ bool test_put_remove(struct hashmap *map, void **keys)
 bool test_iterate(struct hashmap *map, void **keys)
 {
 	size_t i = 0;
-	void *iter = hashmap_iter(map);
+	struct hashmap_iter *iter = hashmap_iter(map);
 
 	for (; iter; iter = hashmap_iter_next(map, iter)) {
 		++i;
@@ -416,7 +416,7 @@ bool test_iterate(struct hashmap *map, void **keys)
 bool test_iterate_remove(struct hashmap *map, void **keys)
 {
 	size_t i = 0;
-	void *iter = hashmap_iter(map);
+	struct hashmap_iter *iter = hashmap_iter(map);
 	const void *key;
 
 	while (iter) {

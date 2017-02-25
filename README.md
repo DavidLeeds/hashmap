@@ -44,7 +44,7 @@ struct hashmap map;
 int main(int argc, char **argv)
 {
   struct blob *b;
-  void *iter;
+  struct hashmap_iter *iter;
 
   /* Initialize with default string key functions and init size */
   hashmap_init(&map, hashmap_hash_string, hashmap_compare_string, 0);
