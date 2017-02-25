@@ -13,6 +13,9 @@ This project came into existence because there are a notable lack of flexible an
 
 ### Code Example
 ```C
+#include <stdlib.h>
+#include <stdio.h>
+
 #include <hashmap.h>
 
 /* Some sample data structure with a string key */
@@ -20,15 +23,15 @@ struct blob {
   char key[32];
   size_t data_len;
   unsigned char data[1024];
-}
+};
 
-/* Declare type-specific hashmap_blob_* functions with this handy macro */
+/* Declare type-specific blob_hashmap_* functions with this handy macro */
 HASHMAP_FUNCS_CREATE(blob, const char, struct blob)
 
 struct blob *blob_load(void)
 {
   struct blob *b;
-  /* 
+  /*
    * Hypothetical function that allocates and loads blob structures
    * from somewhere.  Returns NULL when there are no more blobs to load.
    */
@@ -45,31 +48,31 @@ int main(int argc, char **argv)
 
   /* Initialize with default string key functions and init size */
   hashmap_init(&map, hashmap_hash_string, hashmap_compare_string, 0);
-  
+
   /* Load some sample data into the map and discard duplicates */
   while ((b = blob_load()) != NULL) {
-    if (hashmap_blob_put(&map, b->key, b) != b) {
+    if (blob_hashmap_put(&map, b->key, b) != b) {
       printf("discarding blob with duplicate key: %s\n", b->key);
       free(b);
     }
   }
-  
+
   /* Lookup a blob with key "AbCdEf" */
-  b = hashmap_blob_get(&map, "AbCdEf");
+  b = blob_hashmap_get(&map, "AbCdEf");
   if (b) {
     printf("Found blob[%s]\n", b->key);
   }
-  
+
   /* Iterate through all blobs and print each one */
   for (iter = hashmap_iter(&map); iter; iter = hashmap_iter_next(&map, iter)) {
-    printf("blob[%s]: data_len %zu bytes\n", hashmap_blob_iter_get_key(iter),
-      hashmap_blob_iter_get_data(iter)->data_len);
+    printf("blob[%s]: data_len %zu bytes\n", blob_hashmap_iter_get_key(iter),
+      blob_hashmap_iter_get_data(iter)->data_len);
   }
-  
+
   /* Remove all blobs with no data */
   iter = hashmap_iter(&map);
   while (iter) {
-    b = hashmap_blob_iter_get_data(iter);
+    b = blob_hashmap_iter_get_data(iter);
     if (b->data_len == 0) {
       iter = hashmap_iter_remove(&map, iter);
       free(b);
