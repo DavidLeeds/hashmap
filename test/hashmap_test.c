@@ -98,9 +98,10 @@ void *test_key_alloc_random_int(void)
 		exit(1);
 	}
 	/* RAND_MAX is not guaranteed to be more than 32K */
-	*key = (uint64_t)((random() & 0xffff) << 48 |
-	    (random() & 0xffff) << 32 | (random() & 0xffff) << 16 |
-	    (random() & 0xffff));
+	*key = (uint64_t)(random() & 0xffff) << 48 |
+	    (uint64_t)(random() & 0xffff) << 32 |
+	    (uint64_t)(random() & 0xffff) << 16 |
+	    (uint64_t)(random() & 0xffff);
 	return key;
 }
 
