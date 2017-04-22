@@ -540,9 +540,10 @@ void hashmap_iter_set_data(const struct hashmap_iter *iter, void *data)
 
 /*
  * Invoke func for each entry in the hashmap.  Unlike the hashmap_iter_*()
- * interface, this function supports removal during iteration.  Behavior is
- * undefined if a put is performed during iteration.
- * Iteration is stopped if func returns non-zero.  Returns func return
+ * interface, this function supports calls to hashmap_remove() during iteration.
+ * However, it is an error to put or remove an entry other than the current one,
+ * and doing so will immediately halt iteration and return an error.
+ * Iteration is stopped if func returns non-zero.  Returns func's return
  * value if it is < 0, otherwise, 0.
  */
 int hashmap_foreach(const struct hashmap *map,
@@ -574,8 +575,8 @@ int hashmap_foreach(const struct hashmap *map,
 		/* Run this entry again if func() deleted it */
 		if (entry->key != key) {
 			--entry;
-		} else if (num_entries < map->num_entries) {
-			/* Stop immediately if func added an entry */
+		} else if (num_entries != map->num_entries) {
+			/* Stop immediately if func put/removed another entry */
 			return -1;
 		}
 	}
