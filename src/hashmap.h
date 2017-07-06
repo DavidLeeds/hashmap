@@ -21,7 +21,8 @@
 #define HASHMAP_FUNCS_DECLARE(name, key_type, data_type)		\
 	data_type *name##_hashmap_put(struct hashmap *map, key_type *key, \
 		data_type *data);					\
-	data_type *name##_hashmap_get(struct hashmap *map, key_type *key); \
+	data_type *name##_hashmap_get(const struct hashmap *map,	\
+		key_type *key);						\
 	data_type *name##_hashmap_remove(struct hashmap *map,		\
 		key_type *key);						\
 	key_type *name##_hashmap_iter_get_key(				\
@@ -40,7 +41,8 @@
 		return (data_type *)hashmap_put(map, (const void *)key,	\
 		    (void *)data);					\
 	}								\
-	data_type *name##_hashmap_get(struct hashmap *map, key_type *key) \
+	data_type *name##_hashmap_get(const struct hashmap *map,	\
+		key_type *key)						\
 	{								\
 		return (data_type *)hashmap_get(map, (const void *)key); \
 	}								\
