@@ -8,17 +8,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <string.h>
 #include <time.h>
 #include <assert.h>
 
 #include <hashmap.h>
-
-/* Define boolean type for C */
-#ifndef __cplusplus
-typedef uint8_t bool;
-enum { false = 0, true = !0 };
-#endif /* __cplusplus */
 
 #define ARRAY_LEN(array)	(sizeof(array) / sizeof(array[0]))
 
