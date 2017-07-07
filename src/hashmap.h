@@ -15,6 +15,11 @@
 /* #define HASHMAP_METRICS */
 
 /*
+ * Define HASHMAP_NOASSERT to compile out all assertions used internally.
+ */
+/* #define HASHMAP_NOASSERT */
+
+/*
  * Macros to declare type-specific versions of hashmap_*() functions to
  * allow compile-time type checking and avoid the need for type casting.
  */

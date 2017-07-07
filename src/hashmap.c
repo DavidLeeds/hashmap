@@ -7,16 +7,17 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <string.h>
-#include <assert.h>
 
 #include "hashmap.h"
 
-/* Define boolean type for C */
-#ifndef __cplusplus
-typedef uint8_t bool;
-enum { false = 0, true = !0 };
-#endif /* __cplusplus */
+#ifndef HASHMAP_NOASSERT
+#include <assert.h>
+#define HASHMAP_ASSERT(expr)	assert(expr)
+#else
+#define HASHMAP_ASSERT(expr)
+#endif
 
 /* Table sizes must be powers of 2 */
 #define HASHMAP_SIZE_MIN		(1 << 5)	/* 32 */
@@ -188,8 +189,8 @@ static int hashmap_rehash(struct hashmap *map, size_t new_size)
 	struct hashmap_entry *entry;
 	struct hashmap_entry *new_entry;
 
-	assert(new_size >= HASHMAP_SIZE_MIN);
-	assert((new_size & (new_size - 1)) == 0);
+	HASHMAP_ASSERT(new_size >= HASHMAP_SIZE_MIN);
+	HASHMAP_ASSERT((new_size & (new_size - 1)) == 0);
 
 	new_table = (struct hashmap_entry *)calloc(new_size,
 	    sizeof(struct hashmap_entry));
@@ -262,9 +263,9 @@ int hashmap_init(struct hashmap *map, size_t (*hash_func)(const void *),
 	int (*key_compare_func)(const void *, const void *),
 	size_t initial_size)
 {
-	assert(map != NULL);
-	assert(hash_func != NULL);
-	assert(key_compare_func != NULL);
+	HASHMAP_ASSERT(map != NULL);
+	HASHMAP_ASSERT(hash_func != NULL);
+	HASHMAP_ASSERT(key_compare_func != NULL);
 
 	if (!initial_size) {
 		initial_size = HASHMAP_SIZE_DEFAULT;
@@ -307,7 +308,7 @@ void hashmap_set_key_alloc_funcs(struct hashmap *map,
 	void *(*key_alloc_func)(const void *),
 	void (*key_free_func)(void *))
 {
-	assert(map != NULL);
+	HASHMAP_ASSERT(map != NULL);
 
 	map->key_alloc = key_alloc_func;
 	map->key_free = key_free_func;
@@ -324,8 +325,8 @@ void *hashmap_put(struct hashmap *map, const void *key, void *data)
 {
 	struct hashmap_entry *entry;
 
-	assert(map != NULL);
-	assert(key != NULL);
+	HASHMAP_ASSERT(map != NULL);
+	HASHMAP_ASSERT(key != NULL);
 
 	/* Rehash with 2x capacity if load factor is approaching 0.75 */
 	if (map->table_size <= hashmap_table_min_size_calc(map->num_entries)) {
@@ -372,8 +373,8 @@ void *hashmap_get(const struct hashmap *map, const void *key)
 {
 	struct hashmap_entry *entry;
 
-	assert(map != NULL);
-	assert(key != NULL);
+	HASHMAP_ASSERT(map != NULL);
+	HASHMAP_ASSERT(key != NULL);
 
 	entry = hashmap_entry_find(map, key, false);
 	if (!entry) {
@@ -391,8 +392,8 @@ void *hashmap_remove(struct hashmap *map, const void *key)
 	struct hashmap_entry *entry;
 	void *data;
 
-	assert(map != NULL);
-	assert(key != NULL);
+	HASHMAP_ASSERT(map != NULL);
+	HASHMAP_ASSERT(key != NULL);
 
 	entry = hashmap_entry_find(map, key, false);
 	if (!entry) {
@@ -409,7 +410,7 @@ void *hashmap_remove(struct hashmap *map, const void *key)
  */
 void hashmap_clear(struct hashmap *map)
 {
-	assert(map != NULL);
+	HASHMAP_ASSERT(map != NULL);
 
 	hashmap_free_keys(map);
 	map->num_entries = 0;
@@ -423,7 +424,7 @@ void hashmap_reset(struct hashmap *map)
 {
 	struct hashmap_entry *new_table;
 
-	assert(map != NULL);
+	HASHMAP_ASSERT(map != NULL);
 
 	hashmap_clear(map);
 	if (map->table_size == map->table_size_init) {
@@ -443,7 +444,7 @@ void hashmap_reset(struct hashmap *map)
  */
 size_t hashmap_size(const struct hashmap *map)
 {
-	assert(map != NULL);
+	HASHMAP_ASSERT(map != NULL);
 
 	return map->num_entries;
 }
@@ -456,7 +457,7 @@ size_t hashmap_size(const struct hashmap *map)
  */
 struct hashmap_iter *hashmap_iter(const struct hashmap *map)
 {
-	assert(map != NULL);
+	HASHMAP_ASSERT(map != NULL);
 
 	if (!map->num_entries) {
 		return NULL;
@@ -474,7 +475,7 @@ struct hashmap_iter *hashmap_iter_next(const struct hashmap *map,
 {
 	struct hashmap_entry *entry = (struct hashmap_entry *)iter;
 
-	assert(map != NULL);
+	HASHMAP_ASSERT(map != NULL);
 
 	if (!iter) {
 		return NULL;
@@ -492,7 +493,7 @@ struct hashmap_iter *hashmap_iter_remove(struct hashmap *map,
 {
 	struct hashmap_entry *entry = (struct hashmap_entry *)iter;
 
-	assert(map != NULL);
+	HASHMAP_ASSERT(map != NULL);
 
 	if (!iter) {
 		return NULL;
@@ -554,8 +555,8 @@ int hashmap_foreach(const struct hashmap *map,
 	const void *key;
 	int rc;
 
-	assert(map != NULL);
-	assert(func != NULL);
+	HASHMAP_ASSERT(map != NULL);
+	HASHMAP_ASSERT(func != NULL);
 
 	entry = map->table;
 	for (entry = map->table; entry < &map->table[map->table_size];
@@ -627,7 +628,7 @@ void *hashmap_alloc_key_string(const void *key)
  */
 double hashmap_load_factor(const struct hashmap *map)
 {
-	assert(map != NULL);
+	HASHMAP_ASSERT(map != NULL);
 
 	if (!map->table_size) {
 		return 0;
@@ -643,7 +644,7 @@ double hashmap_collisions_mean(const struct hashmap *map)
 	struct hashmap_entry *entry;
 	size_t total_collisions = 0;
 
-	assert(map != NULL);
+	HASHMAP_ASSERT(map != NULL);
 
 	if (!map->num_entries) {
 		return 0;
@@ -669,7 +670,7 @@ double hashmap_collisions_variance(const struct hashmap *map)
 	double variance;
 	double total_variance = 0;
 
-	assert(map != NULL);
+	HASHMAP_ASSERT(map != NULL);
 
 	if (!map->num_entries) {
 		return 0;
