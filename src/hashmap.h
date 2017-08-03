@@ -242,7 +242,7 @@ void *hashmap_alloc_key_string(const void *key);
 
 #ifdef HASHMAP_METRICS
 /*
- * Return the load factor in percent (0 - 100).
+ * Return the load factor.
  */
 double hashmap_load_factor(const struct hashmap *map);
 
