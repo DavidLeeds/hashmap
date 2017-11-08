@@ -9,8 +9,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
+#include <errno.h>
 
-#include "hashmap.h"
+#include <hashmap.h>
 
 #ifndef HASHMAP_NOASSERT
 #include <assert.h>
@@ -179,7 +180,7 @@ static void hashmap_entry_remove(struct hashmap *map,
 /*
  * Reallocates the hash table to the new size and rehashes all entries.
  * new_size MUST be a power of 2.
- * Returns 0 on success and -1 on allocation or hash function failure.
+ * Returns 0 on success and -errno on allocation or hash function failure.
  */
 static int hashmap_rehash(struct hashmap *map, size_t new_size)
 {
@@ -195,7 +196,7 @@ static int hashmap_rehash(struct hashmap *map, size_t new_size)
 	new_table = (struct hashmap_entry *)calloc(new_size,
 	    sizeof(struct hashmap_entry));
 	if (!new_table) {
-		return -1;
+		return -ENOMEM;
 	}
 	/* Backup old elements in case of rehash failure */
 	old_size = map->table_size;
@@ -211,7 +212,7 @@ static int hashmap_rehash(struct hashmap *map, size_t new_size)
 		new_entry = hashmap_entry_find(map, entry->key, true);
 		if (!new_entry) {
 			/*
-			 * The load factor is still too high with the new table
+			 * The load factor is too high with the new table
 			 * size, or a poor hash function was used.
 			 */
 			goto revert;
@@ -226,7 +227,7 @@ revert:
 	map->table_size = old_size;
 	map->table = old_table;
 	free(new_table);
-	return -1;
+	return -EINVAL;
 }
 
 /*
@@ -258,6 +259,8 @@ static void hashmap_free_keys(struct hashmap *map)
  * expected to be put in the hash table.  This is used as a hint to
  * pre-allocate the hash table to the minimum size needed to avoid
  * gratuitous rehashes.  If initial_size 0, a default size will be used.
+ *
+ * Returns 0 on success and -errno on failure.
  */
 int hashmap_init(struct hashmap *map, size_t (*hash_func)(const void *),
 	int (*key_compare_func)(const void *, const void *),
@@ -279,7 +282,7 @@ int hashmap_init(struct hashmap *map, size_t (*hash_func)(const void *),
 	map->table = (struct hashmap_entry *)calloc(initial_size,
 	    sizeof(struct hashmap_entry));
 	if (!map->table) {
-		return -1;
+		return -ENOMEM;
 	}
 	map->hash = hash_func;
 	map->key_compare = key_compare_func;

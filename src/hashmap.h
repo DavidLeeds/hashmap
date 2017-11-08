@@ -121,6 +121,8 @@ struct hashmap {
  * expected to be put in the hash table.  This is used as a hint to
  * pre-allocate the hash table to the minimum size to avoid gratuitous rehashes.
  * If initial_size 0, a default size will be used.
+ *
+ * Returns 0 on success and -errno on failure.
  */
 int hashmap_init(struct hashmap *map, size_t (*hash_func)(const void *),
 	int (*key_compare_func)(const void *, const void *),
