@@ -11,7 +11,7 @@
 #include <string.h>
 #include <errno.h>
 
-#include <hashmap.h>
+#include "hashmap.h"
 
 #ifndef HASHMAP_NOASSERT
 #include <assert.h>
