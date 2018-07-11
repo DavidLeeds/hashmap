@@ -485,7 +485,7 @@ bool test_reset(struct hashmap *map, void **keys)
     return true;
 }
 
-const struct test const tests[] = {
+const struct test tests[] = {
         {
                 .name = "put performance",
                 .description = "put new hash keys",
