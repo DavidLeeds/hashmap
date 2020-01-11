@@ -20,7 +20,7 @@ target_include_directories(hashmap
         ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-target_compile_options(hashmap PRIVATE $<$<CXX_COMPILER_ID:GNU>:-Wall -Wunused -Werror>)
+target_compile_options(hashmap PRIVATE $<$<C_COMPILER_ID:GNU>:-Wall -Werror>)
 
 ##############################################
 # Installation instructions
