@@ -5,8 +5,7 @@
  * it under the terms of the MIT license. See LICENSE for details.
  */
 
-#ifndef __HASHMAP_H__
-#define __HASHMAP_H__
+#pragma once
 
 #include <stddef.h>
 
@@ -275,7 +274,4 @@ double hashmap_collisions_mean(const struct hashmap *map);
  */
 double hashmap_collisions_variance(const struct hashmap *map);
 #endif
-
-
-#endif /* __HASHMAP_H__ */
 
