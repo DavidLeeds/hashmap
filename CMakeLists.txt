@@ -10,7 +10,8 @@ add_library(hashmap
     src/hashmap.c
 )
 
-# Add an alias so that library can be used inside the build tree, e.g. when testing
+# Add an alias so that library can be used inside the build tree,
+# e.g. when testing
 add_library(HashMap::HashMap ALIAS hashmap)
 
 # Set target properties
@@ -21,8 +22,9 @@ target_include_directories(hashmap
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
-
-target_compile_options(hashmap PRIVATE $<$<C_COMPILER_ID:GNU>:-Wall -Werror>)
+target_compile_options(hashmap
+    PRIVATE $<$<C_COMPILER_ID:GNU>:-Wall -Werror>
+)
 
 ##############################################
 # Installation instructions
@@ -36,19 +38,24 @@ install(TARGETS hashmap
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
-# This is required so that the exported target has the name HashMap and not hashmap
-set_target_properties(hashmap PROPERTIES EXPORT_NAME HashMap)
+# Ensurethe exported target has the name HashMap and not hashmap
+# and if this is linked into a shared library, ensure it is PIC
+set_target_properties(hashmap
+    PROPERTIES
+        EXPORT_NAME HashMap
+        POSITION_INDEPENDENT_CODE ON
+)
 
 install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 # Export the targets to a script
 install(EXPORT hashmap-targets
-  FILE
-    HashMapTargets.cmake
-  NAMESPACE
-    HashMap::
-  DESTINATION
-    ${INSTALL_CONFIGDIR}
+    FILE
+        HashMapTargets.cmake
+    NAMESPACE
+        HashMap::
+    DESTINATION
+        ${INSTALL_CONFIGDIR}
 )
 
 # Create a ConfigVersion.cmake file
@@ -59,7 +66,8 @@ write_basic_package_version_file(
     COMPATIBILITY AnyNewerVersion
 )
 
-configure_package_config_file(${CMAKE_CURRENT_LIST_DIR}/cmake/HashMapConfig.cmake.in
+configure_package_config_file(
+    ${CMAKE_CURRENT_LIST_DIR}/cmake/HashMapConfig.cmake.in
     ${CMAKE_CURRENT_BINARY_DIR}/HashMapConfig.cmake
     INSTALL_DESTINATION ${INSTALL_CONFIGDIR}
 )
@@ -72,8 +80,11 @@ install(FILES
 )
 
 ##############################################
-## Exporting from the build tree
-export(EXPORT hashmap-targets FILE ${CMAKE_CURRENT_BINARY_DIR}/HashMapTargets.cmake NAMESPACE HashMap::)
+# Exporting from the build tree
+export(EXPORT hashmap-targets
+    FILE ${CMAKE_CURRENT_BINARY_DIR}/HashMapTargets.cmake
+    NAMESPACE HashMap::
+)
 
-#Register package in user's package registry
+# Register package in user's package registry
 export(PACKAGE HashMap)
