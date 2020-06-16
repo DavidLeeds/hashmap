@@ -1,8 +1,14 @@
 cmake_minimum_required(VERSION 3.5)
 
-add_executable(hashmap_test ../src/hashmap.c hashmap_test.c)
+# Hashmap unit test
+add_executable(hashmap_test hashmap_test.c)
 target_compile_options(hashmap_test PRIVATE $<$<C_COMPILER_ID:GNU>:-Wall -Werror>)
-target_include_directories(hashmap_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../include)
+target_link_libraries(hashmap_test PRIVATE HashMap::HashMap)
 
-# Build hashmap library with metrics enabled
-target_compile_definitions(hashmap_test PRIVATE HASHMAP_METRICS)
+# Register with CTest
+add_test(NAME hashmap_test COMMAND hashmap_test)
+
+# Hashmap example
+add_executable(hashmap_example hashmap_example.c)
+target_compile_options(hashmap_example PRIVATE $<$<C_COMPILER_ID:GNU>:-Wall -Werror>)
+target_link_libraries(hashmap_example PRIVATE HashMap::HashMap)

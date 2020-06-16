@@ -88,3 +88,8 @@ export(EXPORT hashmap-targets
 
 # Register package in user's package registry
 export(PACKAGE HashMap)
+
+##############################################
+# Build unit test
+enable_testing()
+add_subdirectory(test)

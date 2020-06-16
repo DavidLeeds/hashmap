@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018 David Leeds <davidesleeds@gmail.com>
+ * Copyright (c) 2016-2020 David Leeds <davidesleeds@gmail.com>
  *
  * Hashmap is free software; you can redistribute it and/or modify
  * it under the terms of the MIT license. See LICENSE for details.
@@ -12,37 +12,34 @@
 #include <string.h>
 #include <time.h>
 #include <assert.h>
+#include <errno.h>
 
 #include <hashmap.h>
 
-#define ARRAY_LEN(array)    (sizeof(array) / sizeof(array[0]))
+#define ARRAY_SIZE(array)       (sizeof(array) / sizeof(array[0]))
 
-#define TEST_NUM_KEYS        196607    /* Results in max load factor */
-#define TEST_KEY_STR_LEN    32
+#define TEST_NUM_KEYS           196607    /* Results in max load factor */
+#define TEST_KEY_STR_LEN        32
 
 void **keys_str_random;
 void **keys_str_sequential;
 void **keys_int_random;
 void **keys_int_sequential;
 
-struct hashmap str_map;
-struct hashmap int_map;
+HASHMAP(char, void) str_map;
+HASHMAP(uint64_t, uint64_t) int_map;
+typedef HASHMAP(void, void) hashmap_void_t;
 
 struct test {
     const char *name;
     const char *description;
-    bool (*run)(struct hashmap *map, void **keys);
+    bool (*run)(hashmap_void_t *map, void **keys);
     bool pre_load;
 };
 
-/*
- * Test type-specific generation macros
- */
-HASHMAP_FUNCS_DECLARE(test, const void, void)
-HASHMAP_FUNCS_CREATE(test, const void, void)
 
 
-uint64_t test_time_us(void)
+uint64_t time_mono_us(void)
 {
     struct timespec now;
 
@@ -93,9 +90,9 @@ void *test_key_alloc_random_int(void)
         exit(1);
     }
     /* RAND_MAX is not guaranteed to be more than 32K */
-    *key = (uint64_t)(random() & 0xffff) << 48 |
-            (uint64_t)(random() & 0xffff) << 32 |
-            (uint64_t)(random() & 0xffff) << 16 |
+    *key = ((uint64_t)(random() & 0xffff) << 48) |
+           ((uint64_t)(random() & 0xffff) << 32) |
+           ((uint64_t)(random() & 0xffff) << 16) |
             (uint64_t)(random() & 0xffff);
     return key;
 }
@@ -148,36 +145,37 @@ void test_keys_generate(void)
     keys_int_sequential[i] = NULL;
 }
 
-void test_load_keys(struct hashmap *map, void **keys)
+void test_load_keys(hashmap_void_t *map, void **keys)
 {
     void **key;
+    int r;
 
     for (key = keys; *key; ++key) {
-        if (!test_hashmap_put(map, *key, *key)) {
-            printf("hashmap_put() failed");
+        r = hashmap_put(map, *key, *key);
+        if (r < 0) {
+            printf("hashmap_put() failed: %s\n", strerror(-r));
             exit(1);
         }
     }
 }
 
-void test_reset_map(struct hashmap *map)
+void test_reset_map(hashmap_void_t *map)
 {
     hashmap_reset(map);
 }
 
-void test_print_stats(struct hashmap *map, const char *label)
+void test_print_stats(hashmap_void_t *map, const char *label)
 {
     printf("Hashmap stats: %s\n", label);
     printf("    # entries:           %zu\n", hashmap_size(map));
-    printf("    Table size:          %zu\n", map->table_size);
+    printf("    Table size:          %zu\n", map->map_base.table_size);
     printf("    Load factor:         %.4f\n", hashmap_load_factor(map));
     printf("    Collisions mean:     %.4f\n", hashmap_collisions_mean(map));
-    printf("    Collisions variance: %.4f\n",
-            hashmap_collisions_variance(map));
+    printf("    Collisions variance: %.4f\n", hashmap_collisions_variance(map));
 
 }
 
-bool test_run(struct hashmap *map, void **keys, const struct test *t)
+bool test_run(hashmap_void_t *map, void **keys, const struct test *t)
 {
     bool success;
     uint64_t time_us;
@@ -192,13 +190,13 @@ bool test_run(struct hashmap *map, void **keys, const struct test *t)
         printf("done\n");
     }
     printf("Running...\n");
-    time_us = test_time_us();
+    time_us = time_mono_us();
     success = t->run(map, keys);
-    time_us = test_time_us() - time_us;
+    time_us = time_mono_us() - time_us;
     if (success) {
         printf("Completed successfully\n");
     } else {
-        printf("Failed\n");
+        printf("FAILED\n");
     }
     printf("Run time: %llu microseconds\n", (long long unsigned)time_us);
     test_print_stats(map, t->name);
@@ -206,7 +204,7 @@ bool test_run(struct hashmap *map, void **keys, const struct test *t)
     return success;
 }
 
-bool test_run_all(struct hashmap *map, void **keys,
+bool test_run_all(hashmap_void_t *map, void **keys,
         const struct test *tests, size_t num_tests, const char *env)
 {
     const struct test *t;
@@ -217,8 +215,7 @@ bool test_run_all(struct hashmap *map, void **keys,
     printf("    %s\n", env);
     printf("**************************************************\n\n");
     for (t = tests; t < &tests[num_tests]; ++t) {
-        printf("\n**************************************************"
-                "\n");
+        printf("\n**************************************************\n");
         printf("Test %02u: %s\n", (unsigned)(t - tests) + 1, t->name);
         if (t->description) {
             printf("    Description: %s\n", t->description);
@@ -236,74 +233,85 @@ bool test_run_all(struct hashmap *map, void **keys,
     return (num_failed == 0);
 }
 
-size_t test_hash_uint64(const void *key)
+/*
+ * Worst case hash function.
+ */
+size_t test_hash_uint64_bad1(const uint64_t *key)
 {
-    const uint8_t *byte = (const uint8_t *)key;
-    uint8_t i;
-    size_t hash = 0;
-
-    for (i = 0; i < sizeof(uint64_t); ++i, ++byte) {
-        hash += *byte;
-        hash += (hash << 10);
-        hash ^= (hash >> 6);
-    }
-    hash += (hash << 3);
-    hash ^= (hash >> 11);
-    hash += (hash << 15);
-    return hash;
+    return 999;
 }
 
-int test_compare_uint64(const void *a, const void *b)
+/*
+ * Potentially bad hash function. Depending on the linear probing
+ * implementation, this could cause clustering and long chains when
+ * consecutive numeric keys are loaded.
+ */
+size_t test_hash_uint64_bad2(const uint64_t *key)
 {
-    return *(int64_t *)a - *(int64_t *)b;
+    return *key;
 }
 
-bool test_put(struct hashmap *map, void **keys)
+/*
+ * Potentially bad hash function. Depending on the linear probing
+ * implementation, this could cause clustering and long chains when
+ * consecutive numeric keys are loaded.
+ */
+size_t test_hash_uint64_bad3(const uint64_t *key)
+{
+    return *key + *key;
+}
+
+/*
+ * Use generic hash algorithm supplied by the hashmap library.
+ */
+size_t test_hash_uint64(const uint64_t *key)
+{
+    return hashmap_hash_default(key, sizeof(*key));
+}
+
+int test_compare_uint64(const uint64_t *a, const uint64_t *b)
+{
+    return memcmp(a, b, sizeof(uint64_t));
+}
+
+bool test_put(hashmap_void_t *map, void **keys)
 {
     void **key;
-    void *data;
+    int r;
 
     for (key = keys; *key; ++key) {
-        data = test_hashmap_put(map, *key, *key);
-        if (!data) {
-            printf("malloc failed\n");
-            exit(1);
-        }
-        if (data != *key) {
-            printf("duplicate key found\n");
+        r = hashmap_put(map, *key, *key);
+        if (r < 0) {
+            printf("hashmap_put failed: %s\n", strerror(-r));
             return false;
         }
     }
     return true;
 }
 
-bool test_put_existing(struct hashmap *map, void **keys)
+bool test_put_existing(hashmap_void_t *map, void **keys)
 {
     void **key;
-    void *data;
+    int r;
     int temp_data = 99;
 
     for (key = keys; *key; ++key) {
-        data = hashmap_put(map, *key, &temp_data);
-        if (!data) {
-            printf("malloc failed\n");
-            exit(1);
-        }
-        if (data != *key) {
-            printf("did not return existing data\n");
+        r = hashmap_put(map, *key, &temp_data);
+        if (r != -EEXIST) {
+            printf("did not return existing data: %s\n", strerror(-r));
             return false;
         }
     }
     return true;
 }
 
-bool test_get(struct hashmap *map, void **keys)
+bool test_get(hashmap_void_t *map, void **keys)
 {
     void **key;
     void *data;
 
     for (key = keys; *key; ++key) {
-        data = test_hashmap_get(map, *key);
+        data = hashmap_get(map, *key);
         if (!data) {
             printf("entry not found\n");
             return false;
@@ -316,7 +324,7 @@ bool test_get(struct hashmap *map, void **keys)
     return true;
 }
 
-bool test_get_nonexisting(struct hashmap *map, void **keys)
+bool test_get_nonexisting(hashmap_void_t *map, void **keys)
 {
     void **key;
     void *data;
@@ -332,13 +340,13 @@ bool test_get_nonexisting(struct hashmap *map, void **keys)
     return true;
 }
 
-bool test_remove(struct hashmap *map, void **keys)
+bool test_remove(hashmap_void_t *map, void **keys)
 {
     void **key;
     void *data;
 
     for (key = keys; *key; ++key) {
-        data = test_hashmap_remove(map, *key);
+        data = hashmap_remove(map, *key);
         if (!data) {
             printf("entry not found\n");
             return false;
@@ -351,11 +359,12 @@ bool test_remove(struct hashmap *map, void **keys)
     return true;
 }
 
-bool test_put_remove(struct hashmap *map, void **keys)
+bool test_put_remove(hashmap_void_t *map, void **keys)
 {
     size_t i = 0;
     void **key;
     void *data;
+    int r;
 
     if (!test_put(map, keys)) {
         return false;
@@ -364,7 +373,7 @@ bool test_put_remove(struct hashmap *map, void **keys)
         if (i++ >= TEST_NUM_KEYS / 2) {
             break;
         }
-        data = test_hashmap_remove(map, *key);
+        data = hashmap_remove(map, *key);
         if (!data) {
             printf("key not found\n");
             return false;
@@ -380,26 +389,31 @@ bool test_put_remove(struct hashmap *map, void **keys)
         if (i++ >= TEST_NUM_KEYS / 2) {
             break;
         }
-        data = test_hashmap_put(map, *key, *key);
-        if (!data) {
-            printf("malloc failed\n");
-            exit(1);
-        }
-        if (data != *key) {
-            printf("duplicate key found\n");
+        r = hashmap_put(map, *key, *key);
+        if (r < 0) {
+            printf("hashmap_put failed: %s\n", strerror(-r));
             return false;
         }
     }
     return true;
 }
 
-bool test_iterate(struct hashmap *map, void **keys)
+bool test_iterate(hashmap_void_t *map, void **keys)
 {
     size_t i = 0;
-    struct hashmap_iter *iter = hashmap_iter(map);
+    const void *key;
+    void *data;
 
-    for (; iter; iter = hashmap_iter_next(map, iter)) {
+    hashmap_foreach(key, data, map) {
         ++i;
+        if (!key) {
+            printf("key %zu is NULL\n", i);
+            return false;
+        }
+        if (!data) {
+            printf("data %zu is NULL\n", i);
+            return false;
+        }
     }
     if (i != TEST_NUM_KEYS) {
         printf("did not iterate through all entries: "
@@ -409,23 +423,20 @@ bool test_iterate(struct hashmap *map, void **keys)
     return true;
 }
 
-bool test_iterate_remove(struct hashmap *map, void **keys)
+bool test_iterate_remove(hashmap_void_t *map, void **keys)
 {
     size_t i = 0;
-    struct hashmap_iter *iter = hashmap_iter(map);
     const void *key;
+    void *data, *temp;
 
-    while (iter) {
+    hashmap_foreach_safe(key, data, map, temp) {
         ++i;
-        key = test_hashmap_iter_get_key(iter);
-        if (test_hashmap_get(map, key) != key) {
+        if (hashmap_get(map, key) != data) {
             printf("invalid iterator on entry #%zu\n", i);
             return false;
         }
-        iter = hashmap_iter_remove(map, iter);
-        if (test_hashmap_get(map, key) != NULL) {
-            printf("iter_remove failed on entry #%zu\n", i);
-            return false;
+        if (hashmap_remove(map, key) != data) {
+            printf("key/data mismatch %zu: %p != %p\n", i, key, data);
         }
     }
     if (i != TEST_NUM_KEYS) {
@@ -436,50 +447,42 @@ bool test_iterate_remove(struct hashmap *map, void **keys)
     return true;
 }
 
-struct test_foreach_arg {
-    struct hashmap *map;
-    size_t i;
-};
-
-int test_foreach_callback(const void *key, void *data, void *arg)
+bool test_iterate_remove_odd(hashmap_void_t *map, void **keys)
 {
-    struct test_foreach_arg *state = (struct test_foreach_arg *)arg;
-
-    if (state->i & 1) {
-        /* Remove every other key */
-        if (!test_hashmap_remove(state->map, key)) {
-            printf("could not remove expected key\n");
-            return -1;
-        }
-    }
-    ++state->i;
-    return 0;
-}
-
-bool test_foreach(struct hashmap *map, void **keys)
-{
-    struct test_foreach_arg arg = { map, 1 };
     size_t size = hashmap_size(map);
+    size_t i = 0;
+    size_t removed = 0;
+    const void *key;
+    void *temp;
 
-    if (test_hashmap_foreach(map, test_foreach_callback, &arg) < 0) {
-        return false;
+    hashmap_foreach_key_safe(key, map, temp) {
+        if (i & 1) {
+            /* Remove odd indices */
+            if (!hashmap_remove(map, key)) {
+                printf("could not remove expected key\n");
+                return false;
+            }
+            ++removed;
+        }
+        ++i;
     }
-    if (hashmap_size(map) != size / 2) {
+
+    if (hashmap_size(map) != size - removed) {
         printf("foreach delete did not remove expected # of entries: "
                 "contains %zu vs. expected %zu\n", hashmap_size(map),
-                size / 2);
+                size - removed);
         return false;
     }
     return true;
 }
 
-bool test_clear(struct hashmap *map, void **keys)
+bool test_clear(hashmap_void_t *map, void **keys)
 {
     hashmap_clear(map);
     return true;
 }
 
-bool test_reset(struct hashmap *map, void **keys)
+bool test_reset(hashmap_void_t *map, void **keys)
 {
     hashmap_reset(map);
     return true;
@@ -533,9 +536,9 @@ const struct test tests[] = {
                 .pre_load = true
         },
         {
-                .name = "removal in foreach",
-                .description = "iterate and delete 1/2 using hashmap_foreach",
-                .run = test_foreach,
+                .name = "iterate remove odd indices",
+                .description = "iterate and delete alternate entries",
+                .run = test_iterate_remove_odd,
                 .pre_load = true
         },
         {
@@ -560,45 +563,33 @@ int main(int argc, char **argv)
     bool success = true;
 
     /* Initialize */
-    printf("Initializing hash maps...");
-    if (hashmap_init(&str_map, hashmap_hash_string, hashmap_compare_string,
-            0) < 0) {
-        success = false;
-    }
-    /*
-    hashmap_set_key_alloc_funcs(&str_map, hashmap_alloc_key_string, free);
-     */
-    if (hashmap_init(&int_map, test_hash_uint64, test_compare_uint64,
-            0) < 0) {
-        success = false;
-    }
-    printf("done\n");
+    printf("Initializing hash maps...\n");
+    hashmap_init(&str_map, hashmap_hash_string, strcmp);
 
-    if (!success) {
-        printf("Hashmap init failed");
-        return 1;
-    }
+//    hashmap_set_key_alloc_funcs(&str_map, strdup, (void(*)(char *))free);
+
+    hashmap_init(&int_map, test_hash_uint64_bad2, test_compare_uint64);
 
     printf("Generating test %u test keys...", TEST_NUM_KEYS);
     test_keys_generate();
     printf("done\n");
 
     printf("Running tests\n\n");
-    success &= test_run_all(&str_map, keys_str_random, tests,
-            ARRAY_LEN(tests), "Hashmap w/randomized string keys");
-    success &= test_run_all(&str_map, keys_str_sequential, tests,
-            ARRAY_LEN(tests), "Hashmap w/sequential string keys");
+    success &= test_run_all((hashmap_void_t *)&str_map, keys_str_random, tests,
+            ARRAY_SIZE(tests), "Hashmap w/randomized string keys");
+    success &= test_run_all((hashmap_void_t *)&str_map, keys_str_sequential, tests,
+            ARRAY_SIZE(tests), "Hashmap w/sequential string keys");
 
-    success &= test_run_all(&int_map, keys_int_random, tests,
-            ARRAY_LEN(tests), "Hashmap w/randomized integer keys");
+    success &= test_run_all((hashmap_void_t *)&int_map, keys_int_random, tests,
+            ARRAY_SIZE(tests), "Hashmap w/randomized integer keys");
 
-    success &= test_run_all(&int_map, keys_int_sequential, tests,
-            ARRAY_LEN(tests), "Hashmap w/sequential integer keys");
+    success &= test_run_all((hashmap_void_t *)&int_map, keys_int_sequential, tests,
+            ARRAY_SIZE(tests), "Hashmap w/sequential integer keys");
 
     printf("\nTests finished\n");
 
-    hashmap_destroy(&str_map);
-    hashmap_destroy(&int_map);
+    hashmap_cleanup(&str_map);
+    hashmap_cleanup(&int_map);
 
     if (!success) {
         printf("Tests FAILED\n");

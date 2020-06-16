@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018 David Leeds <davidesleeds@gmail.com>
+ * Copyright (c) 2016-2020 David Leeds <davidesleeds@gmail.com>
  *
  * Hashmap is free software; you can redistribute it and/or modify
  * it under the terms of the MIT license. See LICENSE for details.
@@ -7,271 +7,429 @@
 
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stddef.h>
+#include <hashmap_base.h>
 
 /*
- * Define HASHMAP_METRICS to compile in performance analysis
- * functions for use in assessing hash function performance.
+ * INTERNAL USE ONLY: Updates an iterator structure after the current element was removed.
  */
-/* #define HASHMAP_METRICS */
+#define __HASHMAP_ITER_RESET(iter) ({                                   \
+    ((iter)->iter_pos = hashmap_base_iter(&(iter)->iter_map->map_base, (iter)->iter_pos)) != NULL; \
+})
 
 /*
- * Define HASHMAP_NOASSERT to compile out all assertions used internally.
+ * INTERNAL USE ONLY: foreach macro internals.
  */
-/* #define HASHMAP_NOASSERT */
+#define __HASHMAP_CONCAT_2(x, y)        x ## y
+#define __HASHMAP_CONCAT(x, y)          __HASHMAP_CONCAT_2(x, y)
+#define __HASHMAP_MAKE_UNIQUE(prefix)   __HASHMAP_CONCAT(__HASHMAP_CONCAT(prefix, __COUNTER__), _)
+#define __HASHMAP_UNIQUE(unique, name)  __HASHMAP_CONCAT(unique, name)
+#define __HASHMAP_FOREACH(x, key, data, h)                              \
+    for (HASHMAP_ITER(*(h)) __HASHMAP_UNIQUE(x, it) = hashmap_iter(h, &__HASHMAP_UNIQUE(x, it)); \
+        ((key) = hashmap_iter_get_key(&__HASHMAP_UNIQUE(x, it))) &&     \
+            ((data) = hashmap_iter_get_data(&__HASHMAP_UNIQUE(x, it))); \
+        hashmap_iter_next(&__HASHMAP_UNIQUE(x, it)))
+#define __HASHMAP_FOREACH_SAFE(x, key, data, h, temp_ptr)               \
+    for (HASHMAP_ITER(*(h)) __HASHMAP_UNIQUE(x, it) = hashmap_iter(h, &__HASHMAP_UNIQUE(x, it)); \
+        ((temp_ptr) = (void *)((key) = hashmap_iter_get_key(&__HASHMAP_UNIQUE(x, it)))) && \
+            ((data) = hashmap_iter_get_data(&__HASHMAP_UNIQUE(x, it)));           \
+        ((temp_ptr) == (void *)hashmap_iter_get_key(&__HASHMAP_UNIQUE(x, it))) ?  \
+            hashmap_iter_next(&__HASHMAP_UNIQUE(x, it)) : __HASHMAP_ITER_RESET(&__HASHMAP_UNIQUE(x, it)))
+#define __HASHMAP_FOREACH_KEY(x, key, h)                                \
+    for (HASHMAP_ITER(*(h)) __HASHMAP_UNIQUE(x, it) = hashmap_iter(h, &__HASHMAP_UNIQUE(x, it)); \
+        (key = hashmap_iter_get_key(&__HASHMAP_UNIQUE(x, it)));                   \
+        hashmap_iter_next(&__HASHMAP_UNIQUE(x, it)))
+#define __HASHMAP_FOREACH_KEY_SAFE(x, key, h, temp_ptr)                 \
+    for (HASHMAP_ITER(*(h)) __HASHMAP_UNIQUE(x, it) = hashmap_iter(h, &__HASHMAP_UNIQUE(x, it)); \
+        ((temp_ptr) = (void *)((key) = hashmap_iter_get_key(&__HASHMAP_UNIQUE(x, it)))); \
+        ((temp_ptr) == (void *)hashmap_iter_get_key(&__HASHMAP_UNIQUE(x, it))) ?  \
+            hashmap_iter_next(&__HASHMAP_UNIQUE(x, it)) : __HASHMAP_ITER_RESET(&__HASHMAP_UNIQUE(x, it)))
+#define __HASHMAP_FOREACH_DATA(x, data, h)                              \
+    for (HASHMAP_ITER(*(h)) __HASHMAP_UNIQUE(x, it) = hashmap_iter(h, &__HASHMAP_UNIQUE(x, it)); \
+        (data = hashmap_iter_get_data(&__HASHMAP_UNIQUE(x, it)));                 \
+        hashmap_iter_next(&__HASHMAP_UNIQUE(x, it)))
+#define __HASHMAP_FOREACH_DATA_SAFE(x, data, h, temp_ptr)               \
+    for (HASHMAP_ITER(*(h)) __HASHMAP_UNIQUE(x, it) = hashmap_iter(h, &__HASHMAP_UNIQUE(x, it)); \
+        ((temp_ptr) = (void *)hashmap_iter_get_key(&__HASHMAP_UNIQUE(x, it))) &&  \
+            ((data) = hashmap_iter_get_data(&__HASHMAP_UNIQUE(x, it)));           \
+        ((temp_ptr) == (void *)hashmap_iter_get_key(&__HASHMAP_UNIQUE(x, it))) ?  \
+            hashmap_iter_next(&__HASHMAP_UNIQUE(x, it)) : __HASHMAP_ITER_RESET(&__HASHMAP_UNIQUE(x, it)))
+
 
 /*
- * Macros to declare type-specific versions of hashmap_*() functions to
- * allow compile-time type checking and avoid the need for type casting.
+ * Template macro to define a type-specific hashmap.
+ *
+ * Example declarations:
+ *   HASHMAP(int, struct foo) map1;
+ *   // key_type:       const int *
+ *   // data_type:      struct foo *
+ *
+ *   HASHMAP(char, char) map2;
+ *   // key_type:       const char *
+ *   // data_type:      char *
  */
-#define HASHMAP_FUNCS_DECLARE(name, key_type, data_type)                \
-    data_type *name##_hashmap_put(struct hashmap *map,                  \
-            const key_type *key, data_type *data);                      \
-    data_type *name##_hashmap_get(const struct hashmap *map,            \
-            const key_type *key);                                       \
-    data_type *name##_hashmap_remove(struct hashmap *map,               \
-            const key_type *key);                                       \
-    const key_type *name##_hashmap_iter_get_key(                        \
-            const struct hashmap_iter *iter);                           \
-    data_type *name##_hashmap_iter_get_data(                            \
-            const struct hashmap_iter *iter);                           \
-    void name##_hashmap_iter_set_data(const struct hashmap_iter *iter,  \
-            data_type *data);                                           \
-    int name##_hashmap_foreach(const struct hashmap *map,               \
-            int (*func)(const key_type *, data_type *, void *), void *arg);
-
-#define HASHMAP_FUNCS_CREATE(name, key_type, data_type)                 \
-    data_type *name##_hashmap_put(struct hashmap *map,                  \
-            const key_type *key, data_type *data)                       \
-    {                                                                   \
-        return (data_type *)hashmap_put(map, (const void *)key,         \
-                (void *)data);                                          \
-    }                                                                   \
-    data_type *name##_hashmap_get(const struct hashmap *map,            \
-            const key_type *key)                                        \
-    {                                                                   \
-        return (data_type *)hashmap_get(map, (const void *)key);        \
-    }                                                                   \
-    data_type *name##_hashmap_remove(struct hashmap *map,               \
-            const key_type *key)                                        \
-    {                                                                   \
-        return (data_type *)hashmap_remove(map, (const void *)key);     \
-    }                                                                   \
-    const key_type *name##_hashmap_iter_get_key(                        \
-            const struct hashmap_iter *iter)                            \
-    {                                                                   \
-        return (const key_type *)hashmap_iter_get_key(iter);            \
-    }                                                                   \
-    data_type *name##_hashmap_iter_get_data(                            \
-            const struct hashmap_iter *iter)                            \
-    {                                                                   \
-        return (data_type *)hashmap_iter_get_data(iter);                \
-    }                                                                   \
-    void name##_hashmap_iter_set_data(const struct hashmap_iter *iter,  \
-            data_type *data)                                            \
-    {                                                                   \
-        hashmap_iter_set_data(iter, (void *)data);                      \
-    }                                                                   \
-    struct __##name##_hashmap_foreach_state {                           \
-        int (*func)(const key_type *, data_type *, void *);             \
-        void *arg;                                                      \
-    };                                                                  \
-    static inline int __##name##_hashmap_foreach_callback(              \
-            const void *key, void *data, void *arg)                     \
-    {                                                                   \
-        struct __##name##_hashmap_foreach_state *s =                    \
-            (struct __##name##_hashmap_foreach_state *)arg;             \
-        return s->func((const key_type *)key,                           \
-                (data_type *)data, s->arg);                             \
-    }                                                                   \
-    int name##_hashmap_foreach(const struct hashmap *map,               \
-            int (*func)(const key_type *, data_type *, void *),         \
-            void *arg)                                                  \
-    {                                                                   \
-        struct __##name##_hashmap_foreach_state s = { func, arg };      \
-        return hashmap_foreach(map,                                     \
-            __##name##_hashmap_foreach_callback, &s);                   \
+#define HASHMAP(key_type, data_type)                                    \
+    struct {                                                            \
+        struct hashmap_base map_base;                                   \
+        struct {                                                        \
+            const key_type *t_key;                                      \
+            data_type *t_data;                                          \
+            size_t (*t_hash_func)(const key_type *);                    \
+            int (*t_compare_func)(const key_type *, const key_type *);  \
+            key_type *(*t_key_dup_func)(const key_type *);              \
+            void (*t_key_free_func)(key_type *);                        \
+            int (*t_foreach_func)(const key_type *, data_type *, void *); \
+        } map_types[0];                                                 \
     }
 
-
-struct hashmap_iter;
-struct hashmap_entry;
-
 /*
- * The hashmap state structure.
+ * Template macro to define a hashmap iterator.
+ *
+ * Example declarations:
+ *   HASHMAP_ITER(my_hashmap) iter;
  */
-struct hashmap {
-    size_t table_size_init;
-    size_t table_size;
-    size_t num_entries;
-    struct hashmap_entry *table;
-    size_t (*hash)(const void *);
-    int (*key_compare)(const void *, const void *);
-    void *(*key_alloc)(const void *);
-    void (*key_free)(void *);
-};
+#define HASHMAP_ITER(hashmap_type)                                      \
+    struct {                                                            \
+        typeof(hashmap_type) *iter_map;                                 \
+        struct hashmap_entry *iter_pos;                                 \
+    }
+
 
 /*
  * Initialize an empty hashmap.
  *
- * hash_func should return an even distribution of numbers between 0
- * and SIZE_MAX varying on the key provided.  If set to NULL, the default
- * case-sensitive string hash function is used: hashmap_hash_string
+ * Parameters:
+ *   HASHMAP(<key_type>, <data_type>) *h - hashmap pointer
+ *   size_t (*hash_func)(const <key_type> *) - hash function that should return an
+ *              even distribution of numbers between 0 and SIZE_MAX varying on the key provided.
+ *   int (*compare_func)(const <key_type> *, const <key_type> *) - key comparison function that
+ *              should return 0 if the keys match, and non-zero otherwise.
  *
- * key_compare_func should return 0 if the keys match, and non-zero otherwise.
- * If set to NULL, the default case-sensitive string comparator function is
- * used: hashmap_compare_string
- *
- * initial_size is optional, and may be set to the max number of entries
- * expected to be put in the hash table.  This is used as a hint to
- * pre-allocate the hash table to the minimum size needed to avoid
- * gratuitous rehashes.  If initial_size is 0, a default size will be used.
- *
- * Returns 0 on success and -errno on failure.
+ * This library provides some basic hash functions:
+ *   size_t hashmap_hash_default(const void *data, size_t len)
+ *   size_t hashmap_hash_string(const char *key)
+ *   size_t hashmap_hash_string_i(const char *key)
  */
-int hashmap_init(struct hashmap *map, size_t (*hash_func)(const void *),
-    int (*key_compare_func)(const void *, const void *),
-    size_t initial_size);
+#define hashmap_init(h, hash_func, compare_func) do {                   \
+    typeof((h)->map_types->t_hash_func) __map_hash = (hash_func);       \
+    typeof((h)->map_types->t_compare_func) __map_compare = (compare_func); \
+    hashmap_base_init(&(h)->map_base, (size_t (*)(const void *))__map_hash, (int (*)(const void *, const void *))__map_compare); \
+} while (0)
 
 /*
  * Free the hashmap and all associated memory.
+ *
+ * Parameters:
+ *   HASHMAP(<key_type>, <data_type>) *h - hashmap pointer
  */
-void hashmap_destroy(struct hashmap *map);
+#define hashmap_cleanup(h)                                              \
+    hashmap_base_cleanup(&(h)->map_base)
 
 /*
- * Enable internal memory allocation and management of hash keys.
+ * Enable internal memory allocation and management for hash keys.
+ *
+ * Parameters:
+ *   HASHMAP(<key_type>, <data_type>) *h - hashmap pointer
+ *   <key_type> *(*key_dup_func)(const <key_type> *) - allocate a copy of the key to be
+ *              managed internally by the hashmap.
+ *   void (*key_free_func)(<key_type> *) - free resources associated with a key
  */
-void hashmap_set_key_alloc_funcs(struct hashmap *map,
-    void *(*key_alloc_func)(const void *),
-    void (*key_free_func)(void *));
-
-/*
- * Add an entry to the hashmap.  If an entry with a matching key already
- * exists and has a data pointer associated with it, the existing data
- * pointer is returned, instead of assigning the new value.  Compare
- * the return value with the data passed in to determine if a new entry was
- * created.  Returns NULL if memory allocation failed.
- */
-void *hashmap_put(struct hashmap *map, const void *key, void *data);
-
-/*
- * Return the data pointer, or NULL if no entry exists.
- */
-void *hashmap_get(const struct hashmap *map, const void *key);
-
-/*
- * Remove an entry with the specified key from the map.
- * Returns the data pointer, or NULL, if no entry was found.
- */
-void *hashmap_remove(struct hashmap *map, const void *key);
-
-/*
- * Remove all entries.
- */
-void hashmap_clear(struct hashmap *map);
-
-/*
- * Remove all entries and reset the hash table to its initial size.
- */
-void hashmap_reset(struct hashmap *map);
+#define hashmap_set_key_alloc_funcs(h, key_dup_func, key_free_func) do { \
+    typeof((h)->map_types->t_key_dup_func) __map_key_dup = (key_dup_func); \
+    typeof((h)->map_types->t_key_free_func) __map_key_free = (key_free_func); \
+    hashmap_base_set_key_alloc_funcs(&(h)->map_base, (void *(*)(const void *))__map_key_dup, (void(*)(void *))__map_key_free); \
+} while (0)
 
 /*
  * Return the number of entries in the hash map.
+ *
+ * Parameters:
+ *   const HASHMAP(<key_type>, <data_type>) *h - hashmap pointer
  */
-size_t hashmap_size(const struct hashmap *map);
+#define hashmap_size(h)                                                 \
+    ((const typeof((h)->map_base.size))(h)->map_base.size)
 
 /*
- * Get a new hashmap iterator.  The iterator is an opaque
- * pointer that may be used with hashmap_iter_*() functions.
- * Hashmap iterators are INVALID after a put or remove operation is performed.
- * hashmap_iter_remove() allows safe removal during iteration.
+ * Set the hashmap's initial allocation size such that no rehashes are
+ * required to fit the specified number of entries.
+ *
+ * Parameters:
+ *   HASHMAP(<key_type>, <data_type>) *h - hashmap pointer
+ *   size_t capacity - number of entries.
+ *
+ * Returns 0 on success, or -errno on failure.
  */
-struct hashmap_iter *hashmap_iter(const struct hashmap *map);
+#define hashmap_reserve(h, capacity)                                    \
+    hashmap_base_reserve(&(h)->map_base, capacity)
 
 /*
- * Return an iterator to the next hashmap entry.  Returns NULL if there are
- * no more entries.
+ * Add a new entry to the hashmap. If an entry with a matching key
+ * already exists -EEXIST is returned.
+ *
+ * Parameters:
+ *   HASHMAP(<key_type>, <data_type>) *h - hashmap pointer
+ *   <key_type> *key - pointer to the entry's key
+ *   <data_type> *data - pointer to the entry's data
+ *
+ * Returns 0 on success, or -errno on failure.
  */
-struct hashmap_iter *hashmap_iter_next(const struct hashmap *map,
-    const struct hashmap_iter *iter);
+#define hashmap_put(h, key, data) ({                                    \
+    typeof((h)->map_types->t_key) __map_key = (key);                    \
+    typeof((h)->map_types->t_data) __map_data = (data);                 \
+    hashmap_base_put(&(h)->map_base, (const void *)__map_key, (void *)__map_data); \
+})
 
 /*
- * Remove the hashmap entry pointed to by this iterator and returns an
- * iterator to the next entry.  Returns NULL if there are no more entries.
+ * Do a constant-time lookup of a hashmap entry.
+ *
+ * Parameters:
+ *   HASHMAP(<key_type>, <data_type>) *h - hashmap pointer
+ *   <key_type> *key - pointer to the key to lookup
+ *
+ * Return the data pointer, or NULL if no entry exists.
  */
-struct hashmap_iter *hashmap_iter_remove(struct hashmap *map,
-    const struct hashmap_iter *iter);
+#define hashmap_get(h, key) ({                                          \
+    typeof((h)->map_types->t_key) __map_key = (key);                    \
+    (typeof((h)->map_types->t_data))hashmap_base_get(&(h)->map_base, (const void *)__map_key); \
+})
+
+/*
+ * Remove an entry with the specified key from the map.
+ *
+ * Parameters:
+ *   HASHMAP(<key_type>, <data_type>) *h - hashmap pointer
+ *   <key_type> *key - pointer to the key to remove
+ *
+ * Returns the data pointer, or NULL, if no entry was found.
+ *
+ * Note: it is not safe to call this function while iterating, unless
+ * the "safe" variant of the foreach macro is used, and only the current
+ * key is removed.
+ */
+#define hashmap_remove(h, key) ({                                       \
+    typeof((h)->map_types->t_key) __map_key = (key);                    \
+    (typeof((h)->map_types->t_data))hashmap_base_remove(&(h)->map_base, (const void *)__map_key); \
+})
+
+/*
+ * Remove all entries.
+ *
+ * Parameters:
+ *   HASHMAP(<key_type>, <data_type>) *h - hashmap pointer
+ */
+#define hashmap_clear(h)                                                \
+    hashmap_base_clear(&(h)->map_base)
+
+/*
+ * Remove all entries and reset the hash table to its initial size.
+ *
+ * Parameters:
+ *   HASHMAP(<key_type>, <data_type>) *h - hashmap pointer
+ */
+#define hashmap_reset(h)                                                \
+    hashmap_base_reset(&(h)->map_base)
+
+/*
+ * Initialize an iterator for this hashmap. The iterator is a type-specific
+ * structure that may be declared using the HASHMAP_ITER() macro.
+ *
+ * Parameters:
+ *   HASHMAP(<key_type>, <data_type>) *h - hashmap pointer
+ *   HASHMAP_ITER(<hashmap_type>) *iter - pointer to the iterator to initialize
+ */
+#define hashmap_iter(h, iter) ({                                        \
+    *(iter) = (typeof(*(iter))){ (h), hashmap_base_iter(&(h)->map_base, NULL) }; \
+})
+
+/*
+ * Return true if an iterator is valid and safe to use.
+ *
+ * Parameters:
+ *   HASHMAP_ITER(<hashmap_type>) *iter - iterator pointer
+ */
+#define hashmap_iter_valid(iter)                                        \
+    hashmap_base_iter_valid(&(iter)->iter_map->map_base, (iter)->iter_pos)
+
+/*
+ * Advance an iterator to the next hashmap entry.
+ *
+ * Parameters:
+ *   HASHMAP_ITER(<hashmap_type>) *iter - iterator pointer
+ *
+ * Returns true if the iterator is valid after the operation.
+ */
+#define hashmap_iter_next(iter)                                         \
+    hashmap_base_iter_next(&(iter)->iter_map->map_base, &(iter)->iter_pos)
+
+/*
+ * Remove the hashmap entry pointed to by this iterator and advance the
+ * iterator to the next entry.
+ *
+ * Parameters:
+ *   HASHMAP_ITER(<hashmap_type>) *iter - iterator pointer
+ *
+ * Returns true if the iterator is valid after the operation.
+ */
+#define hashmap_iter_remove(iter)                                       \
+    hashmap_base_iter_remove(&(iter)->iter_map->map_base, &(iter)->iter_pos)
 
 /*
  * Return the key of the entry pointed to by the iterator.
+ *
+ * Parameters:
+ *   HASHMAP_ITER(<hashmap_type>) *iter - iterator pointer
  */
-const void *hashmap_iter_get_key(const struct hashmap_iter *iter);
+#define hashmap_iter_get_key(iter)                                      \
+    ((typeof((iter)->iter_map->map_types->t_key))hashmap_base_iter_get_key((iter)->iter_pos))
 
 /*
  * Return the data of the entry pointed to by the iterator.
+ *
+ * Parameters:
+ *   HASHMAP_ITER(<hashmap_type>) *iter - iterator pointer
  */
-void *hashmap_iter_get_data(const struct hashmap_iter *iter);
+#define hashmap_iter_get_data(iter)                                     \
+    ((typeof((iter)->iter_map->map_types->t_data))hashmap_base_iter_get_data((iter)->iter_pos))
 
 /*
  * Set the data pointer of the entry pointed to by the iterator.
+ *
+ * Parameters:
+ *   HASHMAP_ITER(<hashmap_type>) *iter - iterator pointer
+ *   <data_type> *data - new data pointer
  */
-void hashmap_iter_set_data(const struct hashmap_iter *iter, void *data);
+#define hashmap_iter_set_data(iter, data) ({                            \
+    (typeof((iter)->iter_map->map_types->t_data)) __map_data = (data);  \
+    hashmap_base_iter_set_data((iter)->iter_pos), (void *)__map_data); \
+})
 
 /*
- * Invoke func for each entry in the hashmap.  Unlike the hashmap_iter_*()
- * interface, this function supports calls to hashmap_remove() during iteration.
- * However, it is an error to put or remove an entry other than the current one,
- * and doing so will immediately halt iteration and return an error.
- * Iteration is stopped if func returns non-zero.  Returns func's return
- * value if it is < 0, otherwise, 0.
+ * Convenience macro to iterate through the contents of a hashmap.
+ * key and data are assigned pointers to the current hashmap entry.
+ * It is NOT safe to modify the hashmap while iterating.
+ *
+ * Parameters:
+ *   const <key_type> *key - key pointer assigned on each iteration
+ *   <data_type> *data - data pointer assigned on each iteration
+ *   HASHMAP(<key_type>, <data_type>) *h - hashmap pointer
  */
-int hashmap_foreach(const struct hashmap *map,
-    int (*func)(const void *, void *, void *), void *arg);
+#define hashmap_foreach(key, data, h)                                   \
+    __HASHMAP_FOREACH(__HASHMAP_MAKE_UNIQUE(__map), (key), (data), (h))
 
 /*
- * Default hash function for string keys.
- * This is an implementation of the well-documented Jenkins one-at-a-time
- * hash function.
+ * Convenience macro to iterate through the contents of a hashmap.
+ * key and data are assigned pointers to the current hashmap entry.
+ * Unlike hashmap_foreach(), it is safe to call hashmap_remove() on the
+ * current entry.
+ *
+ * Parameters:
+ *   const <key_type> *key - key pointer assigned on each iteration
+ *   <data_type> *data - data pointer assigned on each iteration
+ *   HASHMAP(<key_type>, <data_type>) *h - hashmap pointer
+ *   void *temp_ptr - opaque pointer assigned on each iteration
  */
-size_t hashmap_hash_string(const void *key);
+#define hashmap_foreach_safe(key, data, h, temp_ptr)                    \
+    __HASHMAP_FOREACH_SAFE(__HASHMAP_MAKE_UNIQUE(__map), (key), (data), (h), (temp_ptr))
 
 /*
- * Default key comparator function for string keys.
+ * Convenience macro to iterate through the keys of a hashmap.
+ * key is assigned a pointer to the current hashmap entry.
+ * It is NOT safe to modify the hashmap while iterating.
+ *
+ * Parameters:
+ *   const <key_type> *key - key pointer assigned on each iteration
+ *   HASHMAP(<key_type>, <data_type>) *h - hashmap pointer
  */
-int hashmap_compare_string(const void *a, const void *b);
+#define hashmap_foreach_key(key, h)                                     \
+    __HASHMAP_FOREACH_KEY(__HASHMAP_MAKE_UNIQUE(__map), (key), (h))
 
 /*
- * Default key allocation function for string keys.  Use free() for the
- * key_free_func.
+ * Convenience macro to iterate through the keys of a hashmap.
+ * key is assigned a pointer to the current hashmap entry.
+ * Unlike hashmap_foreach_key(), it is safe to call hashmap_remove() on the
+ * current entry.
+ *
+ * Parameters:
+ *   const <key_type> *key - key pointer assigned on each iteration
+ *   HASHMAP(<key_type>, <data_type>) *h - hashmap pointer
+ *   void *temp_ptr - opaque pointer assigned on each iteration
  */
-void *hashmap_alloc_key_string(const void *key);
+#define hashmap_foreach_key_safe(key, h, temp_ptr)                      \
+        __HASHMAP_FOREACH_KEY_SAFE(__HASHMAP_MAKE_UNIQUE(__map), (key), (h), (temp_ptr))
 
 /*
- * Case insensitive hash function for string keys.
+ * Convenience macro to iterate through the data of a hashmap.
+ * data is assigned a pointer to the current hashmap entry.
+ * It is NOT safe to modify the hashmap while iterating.
+ *
+ * Parameters:
+ *   <data_type> *data - data pointer assigned on each iteration
+ *   HASHMAP(<key_type>, <data_type>) *h - hashmap pointer
  */
-size_t hashmap_hash_string_i(const void *key);
+#define hashmap_foreach_data(data, h)                                   \
+    __HASHMAP_FOREACH_DATA(__HASHMAP_MAKE_UNIQUE(__map), (data), (h))
 
 /*
- * Case insensitive key comparator function for string keys.
+ * Convenience macro to iterate through the data of a hashmap.
+ * data is assigned a pointer to the current hashmap entry.
+ * Unlike hashmap_foreach_data(), it is safe to call hashmap_remove() on the
+ * current entry.
+ *
+ * Parameters:
+ *   <data_type> *data - data pointer assigned on each iteration
+ *   HASHMAP(<key_type>, <data_type>) *h - hashmap pointer
+ *   void *temp_ptr - opaque pointer assigned on each iteration
  */
-int hashmap_compare_string_i(const void *a, const void *b);
+#define hashmap_foreach_data_safe(data, h, temp_ptr)                    \
+    __HASHMAP_FOREACH_DATA_SAFE(__HASHMAP_MAKE_UNIQUE(__map), (data), (h), (temp_ptr))
 
-
-#ifdef HASHMAP_METRICS
 /*
  * Return the load factor.
+ *
+ * Parameters:
+ *   HASHMAP(<key_type>, <data_type>) *h - hashmap pointer
  */
-double hashmap_load_factor(const struct hashmap *map);
+#define hashmap_load_factor(h)                                          \
+    hashmap_base_load_factor(&(h)->map_base)
+
+/*
+ * Return the number of collisions for this key.
+ * This would always be 0 if a perfect hash function was used, but in ordinary
+ * usage, there may be a few collisions, depending on the hash function and
+ * load factor.
+ *
+ * Parameters:
+ *   HASHMAP(<key_type>, <data_type>) *h - hashmap pointer
+ *   <key_type> *key - pointer to the entry's key
+ */
+#define hashmap_collisions(h, key) ({                                   \
+    typeof((h)->map_types->t_key) __map_key = (key);                    \
+    hashmap_base_collisions_mean(&(h)->map_base, (const void *)__map_key); \
+})
 
 /*
  * Return the average number of collisions per entry.
+ *
+ * Parameters:
+ *   HASHMAP(<key_type>, <data_type>) *h - hashmap pointer
  */
-double hashmap_collisions_mean(const struct hashmap *map);
+#define hashmap_collisions_mean(h)                                      \
+    hashmap_base_collisions_mean(&(h)->map_base)
 
 /*
- * Return the variance between entry collisions.  The higher the variance,
+ * Return the variance between entry collisions. The higher the variance,
  * the more likely the hash function is poor and is resulting in clustering.
+ *
+ * Parameters:
+ *   HASHMAP(<key_type>, <data_type>) *h - hashmap pointer
  */
-double hashmap_collisions_variance(const struct hashmap *map);
-#endif
+#define hashmap_collisions_variance(h)                                  \
+    hashmap_base_collisions_variance(&(h)->map_base)
 
+#ifdef __cplusplus
+}
+#endif
