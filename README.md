@@ -1,4 +1,4 @@
-# hashmap
+# hashmap v2
 Templated type-safe hashmap implementation in C using open addressing and linear probing for collision resolution.
 
 ### Summary
