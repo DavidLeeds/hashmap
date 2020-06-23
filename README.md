@@ -104,3 +104,12 @@ int main(int argc, char **argv)
     return 0;
 }
 ```
+
+### How to Build and Install
+This project uses CMake to orchestrate the build and installallation process. To build and install on your host system, follow these easy steps:
+1. `git clone https://github.com/DavidLeeds/hashmap.git` - download the source
+2. `mkdir build-hashmap && cd build-hashmap` - create a build directory outside the source tree
+3. `cmake ../hashmap` - run CMake to setup the build
+4. `make` - compile the code
+5. `make test` - run the unit tests
+6. `sudo make install` - _OPTIONAL_ install the library on this system
