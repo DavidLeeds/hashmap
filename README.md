@@ -1,4 +1,4 @@
-# hashmap v2
+# hashmap v2 [![ci](https://github.com/DavidLeeds/hashmap/workflows/CI/badge.svg)]
 Templated type-safe hashmap implementation in C using open addressing and linear probing for collision resolution.
 
 ### Summary
@@ -111,5 +111,12 @@ This project uses CMake to orchestrate the build and installallation process. To
 2. `mkdir build-hashmap && cd build-hashmap` - create a build directory outside the source tree
 3. `cmake ../hashmap` - run CMake to setup the build
 4. `make` - compile the code
-5. `make test` - run the unit tests
+5. `make test` - run the unit tests (if enabled)
 6. `sudo make install` - _OPTIONAL_ install the library on this system
+
+##### CMake Options
+
+* `HASHMAP_BUILD_TESTS` - Set to `ON` to generate unit tests. 
+
+### Contibutions and Questions
+I welcome all questions and contributions. Feel free to e-mail me, or put up a pull request. The core algorithm is stable, but I'm happy to consider CMake improvements, compiler compatibility fixes, or API additions.

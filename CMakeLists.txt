@@ -1,7 +1,19 @@
 cmake_minimum_required(VERSION 3.5)
-project(hashmap VERSION 1.0.0 LANGUAGES C)
+project(hashmap VERSION 2.0.0 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 99)
+
+##############################################
+# Build options
+
+option(HASHMAP_BUILD_TESTS "Build tests" OFF)
+
+##############################################
+# Set default build to release
+
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose Release or Debug" FORCE)
+endif()
 
 ##############################################
 # Create target and set properties
@@ -38,7 +50,7 @@ install(TARGETS hashmap
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
-# Ensurethe exported target has the name HashMap and not hashmap
+# Ensure the exported target has the name HashMap and not hashmap
 # and if this is linked into a shared library, ensure it is PIC
 set_target_properties(hashmap
     PROPERTIES
@@ -81,6 +93,7 @@ install(FILES
 
 ##############################################
 # Exporting from the build tree
+
 export(EXPORT hashmap-targets
     FILE ${CMAKE_CURRENT_BINARY_DIR}/HashMapTargets.cmake
     NAMESPACE HashMap::
@@ -91,5 +104,8 @@ export(PACKAGE HashMap)
 
 ##############################################
 # Build unit test
-enable_testing()
-add_subdirectory(test)
+
+if(HASHMAP_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(test)
+endif()
