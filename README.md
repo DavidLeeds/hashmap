@@ -1,4 +1,6 @@
-# hashmap v2 [![ci](https://github.com/DavidLeeds/hashmap/workflows/CI/badge.svg)]
+# hashmap v2
+![ci](https://github.com/DavidLeeds/hashmap/workflows/CI/badge.svg)
+
 Templated type-safe hashmap implementation in C using open addressing and linear probing for collision resolution.
 
 ### Summary
