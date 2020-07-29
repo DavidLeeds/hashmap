@@ -13,7 +13,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        compiler: [gcc, clang]
+        compiler: [gcc]
         build_type: [debug, release]
     steps:
     - uses: actions/checkout@v2
