@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        compiler: [gcc]
+        build_type: [debug, release]
+    steps:
+    - uses: actions/checkout@v2
+    - name: install-clang
+      if: matrix.compiler == 'clang'
+      run: |
+        sudo apt-get install -y clang
+        sudo update-alternatives --remove-all cc
+        sudo update-alternatives --install /usr/bin/cc cc /usr/bin/clang 10
+    - name: configure-debug
+      if: matrix.build_type == 'debug'
+      run: |
+        mkdir build
+        cd build
+        cmake -DCMAKE_BUILD_TYPE=Debug -DHASHMAP_BUILD_TESTS=1 ${GITHUB_WORKSPACE}
+    - name: configure-release
+      if: matrix.build_type == 'release'
+      run: |
+        mkdir build
+        cd build
+        cmake -DCMAKE_BUILD_TYPE=Release -DHASHMAP_BUILD_TESTS=1 ${GITHUB_WORKSPACE}
+    - name: make
+      run: |
+        make VERBOSE=1 -C build
+    - name: install
+      run: |
+        cd build
+        sudo make install
+    - name: test
+      run: |
+        ctest
