@@ -110,9 +110,12 @@ extern "C" {
  *              should return 0 if the keys match, and non-zero otherwise.
  *
  * This library provides some basic hash functions:
- *   size_t hashmap_hash_default(const void *data, size_t len)
- *   size_t hashmap_hash_string(const char *key)
- *   size_t hashmap_hash_string_i(const char *key)
+ *   size_t hashmap_hash_default(const void *data, size_t len) - Jenkins one-at-a-time hash for
+ *           keys of any data type. Create a type-specific wrapper function to pass to hashmap_init().
+ *   size_t hashmap_hash_string(const char *key) - case sensitive string hash function.
+ *           Pass this directly to hashmap_init().
+ *   size_t hashmap_hash_string_i(const char *key) - non-case sensitive string hash function.
+ *           Pass this directly to hashmap_init().
  */
 #define hashmap_init(h, hash_func, compare_func) do {                   \
     typeof((h)->map_types->t_hash_func) __map_hash = (hash_func);       \
@@ -151,7 +154,7 @@ extern "C" {
  *   const HASHMAP(<key_type>, <data_type>) *h - hashmap pointer
  */
 #define hashmap_size(h)                                                 \
-    ((const typeof((h)->map_base.size))(h)->map_base.size)
+    ((typeof((h)->map_base.size))(h)->map_base.size)
 
 /*
  * Set the hashmap's initial allocation size such that no rehashes are
