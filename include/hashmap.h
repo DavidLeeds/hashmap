@@ -18,7 +18,7 @@ extern "C" {
  * INTERNAL USE ONLY: Updates an iterator structure after the current element was removed.
  */
 #define __HASHMAP_ITER_RESET(iter) ({                                   \
-    ((iter)->iter_pos = hashmap_base_iter(&(iter)->iter_map->map_base, (iter)->iter_pos)) != NULL; \
+    ((iter)->iter_pos = hashmap_base_iter((iter)->iter_map, (iter)->iter_pos)) != NULL; \
 })
 
 /*
@@ -29,34 +29,34 @@ extern "C" {
 #define __HASHMAP_MAKE_UNIQUE(prefix)   __HASHMAP_CONCAT(__HASHMAP_CONCAT(prefix, __COUNTER__), _)
 #define __HASHMAP_UNIQUE(unique, name)  __HASHMAP_CONCAT(unique, name)
 #define __HASHMAP_FOREACH(x, key, data, h)                              \
-    for (HASHMAP_ITER(*(h)) __HASHMAP_UNIQUE(x, it) = hashmap_iter(h, &__HASHMAP_UNIQUE(x, it)); \
+    for (HASHMAP_ITER(*(h)) __HASHMAP_UNIQUE(x, it) = hashmap_iter(h);  \
         ((key) = hashmap_iter_get_key(&__HASHMAP_UNIQUE(x, it))) &&     \
             ((data) = hashmap_iter_get_data(&__HASHMAP_UNIQUE(x, it))); \
         hashmap_iter_next(&__HASHMAP_UNIQUE(x, it)))
 #define __HASHMAP_FOREACH_SAFE(x, key, data, h, temp_ptr)               \
-    for (HASHMAP_ITER(*(h)) __HASHMAP_UNIQUE(x, it) = hashmap_iter(h, &__HASHMAP_UNIQUE(x, it)); \
+    for (HASHMAP_ITER(*(h)) __HASHMAP_UNIQUE(x, it) = hashmap_iter(h);  \
         ((temp_ptr) = (void *)((key) = hashmap_iter_get_key(&__HASHMAP_UNIQUE(x, it)))) && \
-            ((data) = hashmap_iter_get_data(&__HASHMAP_UNIQUE(x, it)));           \
-        ((temp_ptr) == (void *)hashmap_iter_get_key(&__HASHMAP_UNIQUE(x, it))) ?  \
+            ((data) = hashmap_iter_get_data(&__HASHMAP_UNIQUE(x, it))); \
+        ((temp_ptr) == (void *)hashmap_iter_get_key(&__HASHMAP_UNIQUE(x, it))) ? \
             hashmap_iter_next(&__HASHMAP_UNIQUE(x, it)) : __HASHMAP_ITER_RESET(&__HASHMAP_UNIQUE(x, it)))
 #define __HASHMAP_FOREACH_KEY(x, key, h)                                \
-    for (HASHMAP_ITER(*(h)) __HASHMAP_UNIQUE(x, it) = hashmap_iter(h, &__HASHMAP_UNIQUE(x, it)); \
-        (key = hashmap_iter_get_key(&__HASHMAP_UNIQUE(x, it)));                   \
+    for (HASHMAP_ITER(*(h)) __HASHMAP_UNIQUE(x, it) = hashmap_iter(h);  \
+        (key = hashmap_iter_get_key(&__HASHMAP_UNIQUE(x, it)));         \
         hashmap_iter_next(&__HASHMAP_UNIQUE(x, it)))
 #define __HASHMAP_FOREACH_KEY_SAFE(x, key, h, temp_ptr)                 \
-    for (HASHMAP_ITER(*(h)) __HASHMAP_UNIQUE(x, it) = hashmap_iter(h, &__HASHMAP_UNIQUE(x, it)); \
+    for (HASHMAP_ITER(*(h)) __HASHMAP_UNIQUE(x, it) = hashmap_iter(h);  \
         ((temp_ptr) = (void *)((key) = hashmap_iter_get_key(&__HASHMAP_UNIQUE(x, it)))); \
-        ((temp_ptr) == (void *)hashmap_iter_get_key(&__HASHMAP_UNIQUE(x, it))) ?  \
+        ((temp_ptr) == (void *)hashmap_iter_get_key(&__HASHMAP_UNIQUE(x, it))) ? \
             hashmap_iter_next(&__HASHMAP_UNIQUE(x, it)) : __HASHMAP_ITER_RESET(&__HASHMAP_UNIQUE(x, it)))
 #define __HASHMAP_FOREACH_DATA(x, data, h)                              \
-    for (HASHMAP_ITER(*(h)) __HASHMAP_UNIQUE(x, it) = hashmap_iter(h, &__HASHMAP_UNIQUE(x, it)); \
-        (data = hashmap_iter_get_data(&__HASHMAP_UNIQUE(x, it)));                 \
+    for (HASHMAP_ITER(*(h)) __HASHMAP_UNIQUE(x, it) = hashmap_iter(h);  \
+        (data = hashmap_iter_get_data(&__HASHMAP_UNIQUE(x, it)));       \
         hashmap_iter_next(&__HASHMAP_UNIQUE(x, it)))
 #define __HASHMAP_FOREACH_DATA_SAFE(x, data, h, temp_ptr)               \
-    for (HASHMAP_ITER(*(h)) __HASHMAP_UNIQUE(x, it) = hashmap_iter(h, &__HASHMAP_UNIQUE(x, it)); \
-        ((temp_ptr) = (void *)hashmap_iter_get_key(&__HASHMAP_UNIQUE(x, it))) &&  \
-            ((data) = hashmap_iter_get_data(&__HASHMAP_UNIQUE(x, it)));           \
-        ((temp_ptr) == (void *)hashmap_iter_get_key(&__HASHMAP_UNIQUE(x, it))) ?  \
+    for (HASHMAP_ITER(*(h)) __HASHMAP_UNIQUE(x, it) = hashmap_iter(h);  \
+        ((temp_ptr) = (void *)hashmap_iter_get_key(&__HASHMAP_UNIQUE(x, it))) && \
+            ((data) = hashmap_iter_get_data(&__HASHMAP_UNIQUE(x, it))); \
+        ((temp_ptr) == (void *)hashmap_iter_get_key(&__HASHMAP_UNIQUE(x, it))) ? \
             hashmap_iter_next(&__HASHMAP_UNIQUE(x, it)) : __HASHMAP_ITER_RESET(&__HASHMAP_UNIQUE(x, it)))
 
 
@@ -83,6 +83,14 @@ extern "C" {
             key_type *(*t_key_dup_func)(const key_type *);              \
             void (*t_key_free_func)(key_type *);                        \
             int (*t_foreach_func)(const key_type *, data_type *, void *); \
+            struct {                                                    \
+                struct hashmap_base *iter_map;                          \
+                struct hashmap_entry *iter_pos;                         \
+                struct {                                                \
+                    const key_type *t_key;                              \
+                    data_type *t_data;                                  \
+                } iter_types[0];                                        \
+            } t_iterator;                                               \
         } map_types[0];                                                 \
     }
 
@@ -93,10 +101,7 @@ extern "C" {
  *   HASHMAP_ITER(my_hashmap) iter;
  */
 #define HASHMAP_ITER(hashmap_type)                                      \
-    struct {                                                            \
-        typeof(hashmap_type) *iter_map;                                 \
-        struct hashmap_entry *iter_pos;                                 \
-    }
+    typeof((hashmap_type).map_types->t_iterator)
 
 
 /*
@@ -237,16 +242,14 @@ extern "C" {
     hashmap_base_reset(&(h)->map_base)
 
 /*
- * Initialize an iterator for this hashmap. The iterator is a type-specific
+ * Return an iterator for this hashmap. The iterator is a type-specific
  * structure that may be declared using the HASHMAP_ITER() macro.
  *
  * Parameters:
  *   HASHMAP(<key_type>, <data_type>) *h - hashmap pointer
- *   HASHMAP_ITER(<hashmap_type>) *iter - pointer to the iterator to initialize
  */
-#define hashmap_iter(h, iter) ({                                        \
-    *(iter) = (typeof(*(iter))){ (h), hashmap_base_iter(&(h)->map_base, NULL) }; \
-})
+#define hashmap_iter(h)                                                 \
+    ((HASHMAP_ITER(*(h))){ &(h)->map_base, hashmap_base_iter(&(h)->map_base, NULL) })
 
 /*
  * Return true if an iterator is valid and safe to use.
@@ -255,7 +258,7 @@ extern "C" {
  *   HASHMAP_ITER(<hashmap_type>) *iter - iterator pointer
  */
 #define hashmap_iter_valid(iter)                                        \
-    hashmap_base_iter_valid(&(iter)->iter_map->map_base, (iter)->iter_pos)
+    hashmap_base_iter_valid((iter)->iter_map, (iter)->iter_pos)
 
 /*
  * Advance an iterator to the next hashmap entry.
@@ -266,7 +269,7 @@ extern "C" {
  * Returns true if the iterator is valid after the operation.
  */
 #define hashmap_iter_next(iter)                                         \
-    hashmap_base_iter_next(&(iter)->iter_map->map_base, &(iter)->iter_pos)
+    hashmap_base_iter_next((iter)->iter_map, &(iter)->iter_pos)
 
 /*
  * Remove the hashmap entry pointed to by this iterator and advance the
@@ -278,7 +281,7 @@ extern "C" {
  * Returns true if the iterator is valid after the operation.
  */
 #define hashmap_iter_remove(iter)                                       \
-    hashmap_base_iter_remove(&(iter)->iter_map->map_base, &(iter)->iter_pos)
+    hashmap_base_iter_remove((iter)->iter_map, &(iter)->iter_pos)
 
 /*
  * Return the key of the entry pointed to by the iterator.
@@ -287,7 +290,7 @@ extern "C" {
  *   HASHMAP_ITER(<hashmap_type>) *iter - iterator pointer
  */
 #define hashmap_iter_get_key(iter)                                      \
-    ((typeof((iter)->iter_map->map_types->t_key))hashmap_base_iter_get_key((iter)->iter_pos))
+    ((typeof((iter)->iter_types->t_key))hashmap_base_iter_get_key((iter)->iter_pos))
 
 /*
  * Return the data of the entry pointed to by the iterator.
@@ -296,7 +299,7 @@ extern "C" {
  *   HASHMAP_ITER(<hashmap_type>) *iter - iterator pointer
  */
 #define hashmap_iter_get_data(iter)                                     \
-    ((typeof((iter)->iter_map->map_types->t_data))hashmap_base_iter_get_data((iter)->iter_pos))
+    ((typeof((iter)->iter_types->t_data))hashmap_base_iter_get_data((iter)->iter_pos))
 
 /*
  * Set the data pointer of the entry pointed to by the iterator.
@@ -306,7 +309,7 @@ extern "C" {
  *   <data_type> *data - new data pointer
  */
 #define hashmap_iter_set_data(iter, data) ({                            \
-    (typeof((iter)->iter_map->map_types->t_data)) __map_data = (data);  \
+    (typeof((iter)->iter_types->t_data)) __map_data = (data);           \
     hashmap_base_iter_set_data((iter)->iter_pos), (void *)__map_data); \
 })
 
