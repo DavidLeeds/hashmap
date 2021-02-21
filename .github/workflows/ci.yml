@@ -44,4 +44,5 @@ jobs:
         sudo make install
     - name: test
       run: |
+        cd build
         ctest
