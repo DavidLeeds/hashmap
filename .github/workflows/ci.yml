@@ -28,13 +28,13 @@ jobs:
       run: |
         mkdir build
         cd build
-        cmake -DCMAKE_BUILD_TYPE=Debug -DHASHMAP_BUILD_TESTS=1 ${GITHUB_WORKSPACE}
+        cmake -DCMAKE_BUILD_TYPE=Debug -DHASHMAP_BUILD_TESTS=ON -DHASHMAP_BUILD_EXAMPLES=ON ${GITHUB_WORKSPACE}
     - name: configure-release
       if: matrix.build_type == 'release'
       run: |
         mkdir build
         cd build
-        cmake -DCMAKE_BUILD_TYPE=Release -DHASHMAP_BUILD_TESTS=1 ${GITHUB_WORKSPACE}
+        cmake -DCMAKE_BUILD_TYPE=Release -DHASHMAP_BUILD_TESTS=ON -DHASHMAP_BUILD_EXAMPLES=ON ${GITHUB_WORKSPACE}
     - name: make
       run: |
         make VERBOSE=1 -C build
