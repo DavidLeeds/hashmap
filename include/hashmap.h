@@ -414,7 +414,7 @@ extern "C" {
  */
 #define hashmap_collisions(h, key) ({                                   \
     typeof((h)->map_types->t_key) __map_key = (key);                    \
-    hashmap_base_collisions_mean(&(h)->map_base, (const void *)__map_key); \
+    hashmap_base_collisions(&(h)->map_base, (const void *)__map_key);   \
 })
 
 /*
