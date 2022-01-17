@@ -7,6 +7,7 @@ set(CMAKE_C_STANDARD 99)
 # Build options
 
 option(HASHMAP_BUILD_TESTS "Build tests" OFF)
+option(HASHMAP_BUILD_EXAMPLES "Build examples" OFF)
 
 ##############################################
 # Set default build to release
@@ -109,3 +110,11 @@ if(HASHMAP_BUILD_TESTS)
     enable_testing()
     add_subdirectory(test)
 endif()
+
+##############################################
+# Build examples
+
+if(HASHMAP_BUILD_EXAMPLES)
+    add_subdirectory(examples)
+endif()
+

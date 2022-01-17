@@ -8,7 +8,3 @@ target_link_libraries(hashmap_test PRIVATE HashMap::HashMap)
 # Register with CTest
 add_test(NAME hashmap_test COMMAND hashmap_test)
 
-# Hashmap example
-add_executable(hashmap_example hashmap_example.c)
-target_compile_options(hashmap_example PRIVATE $<$<C_COMPILER_ID:GNU>:-Wall -Werror>)
-target_link_libraries(hashmap_example PRIVATE HashMap::HashMap)
