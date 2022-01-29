@@ -12,7 +12,7 @@ extern "C" {
 #endif
 
 #include <stddef.h>
-#include <hashmap_base.h>
+#include "hashmap_base.h"
 
 /*
  * INTERNAL USE ONLY: Updates an iterator structure after the current element was removed.
