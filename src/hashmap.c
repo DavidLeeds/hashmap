@@ -13,7 +13,7 @@
 #include <assert.h>
 #include <errno.h>
 
-#include <hashmap_base.h>
+#include "hashmap_base.h"
 
 
 /* Table sizes must be powers of 2 */
