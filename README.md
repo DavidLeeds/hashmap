@@ -57,7 +57,7 @@ I recommend using these, unless you have very specific needs.
 hashmap_init(&map, hashmap_hash_string, strcmp);
 ```
 
-Note that any memory associated with map values is not managed by the map, so you may need to free this before calling `hashmap_cleanup()`. Keys are often stored in the same structure as the value, but it is possible to have the map manage key memory allocation internally, by calling `hashmap_set_key_alloc_funcs()`.
+Note that memory associated with map keys and values is not managed by the map, so you may need to free this before calling `hashmap_cleanup()`. Keys are often stored in the same structure as the value, but it is possible to have the map manage key memory allocation internally, by calling `hashmap_set_key_alloc_funcs()`.
 
 
 ### Value insertion and access
