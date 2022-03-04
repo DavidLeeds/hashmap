@@ -1,6 +1,6 @@
 {
   "name": "templated-hashmap",
-  "version": "2.0.1",
+  "version": "v2.0.1",
   "repo": "DavidLeeds/hashmap",
   "description": " Templated type-safe hashmap implementation in C using open addressing and linear probing for collision resolution. ",
   "keywords": ["hashmap", "dictionary", "templated"],
