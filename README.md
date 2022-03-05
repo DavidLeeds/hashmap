@@ -1,5 +1,5 @@
 # hashmap
-![ci](https://github.com/DavidLeeds/hashmap/workflows/CI/badge.svg)
+[![ci](https://github.com/DavidLeeds/hashmap/workflows/CI/badge.svg)](https://github.com/DavidLeeds/hashmap/actions/workflows/ci.yml)
 
 Templated type-safe hashmap implementation in C using open addressing and linear probing for collision resolution.
 
