@@ -183,7 +183,7 @@ static int hashmap_rehash(struct hashmap_base *hb, size_t table_size)
     hb->table_size = table_size;
     hb->table = new_table;
 
-    if (old_table == NULL) {
+    if (!old_table) {
         return 0;
     }
 
