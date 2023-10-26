@@ -6,6 +6,8 @@
  */
 
 #pragma once
+#include <stdbool.h>
+#include <stddef.h>
 
 struct hashmap_entry;
 
