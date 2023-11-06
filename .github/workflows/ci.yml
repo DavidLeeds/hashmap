@@ -22,7 +22,7 @@ jobs:
       run: |
         sudo apt-get install -y clang
         sudo update-alternatives --remove-all cc
-        sudo update-alternatives --install /usr/bin/cc cc /usr/bin/clang 10
+        sudo update-alternatives --install /usr/bin/cc cc /usr/bin/clang 14
     - name: configure-debug
       if: matrix.build_type == 'debug'
       run: |
@@ -45,4 +45,4 @@ jobs:
     - name: test
       run: |
         cd build
-        ctest
+        ctest --output-on-failure
