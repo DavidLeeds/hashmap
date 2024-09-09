@@ -1,8 +1,8 @@
 {
   "name": "templated-hashmap",
-  "version": "v2.0.3",
+  "version": "v2.1.0",
   "repo": "DavidLeeds/hashmap",
-  "description": " Templated type-safe hashmap implementation in C using open addressing and linear probing for collision resolution. ",
+  "description": " Templated type-safe hashmap implementation in C using open addressing and linear probing for collision resolution.",
   "keywords": ["hashmap", "dictionary", "templated"],
   "license": "MIT",
   "src": ["src/hashmap.c", "include/hashmap.h", "include/hashmap_base.h"]
