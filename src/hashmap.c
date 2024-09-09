@@ -77,7 +77,7 @@ static inline size_t hashmap_calc_index(const struct hashmap_base *hb, const voi
 static struct hashmap_entry *hashmap_entry_get_populated(const struct hashmap_base *hb,
         const struct hashmap_entry *entry)
 {
-    if (hb->size > 0) {
+    if (hb->size > 0 && entry >= hb->table) {
         for (; entry < &hb->table[hb->table_size]; ++entry) {
             if (entry->key) {
                 return (struct hashmap_entry *)entry;
@@ -119,7 +119,7 @@ static struct hashmap_entry *hashmap_entry_find(const struct hashmap_base *hb,
 
 /*
  * Removes the specified entry and processes the following entries to
- * keep the chain contiguous. This is a required step for hash maps
+ * keep the chain contiguous. This is a required step for hashmaps
  * using linear probing.
  */
 static void hashmap_entry_remove(struct hashmap_base *hb, struct hashmap_entry *removed_entry)
@@ -134,6 +134,7 @@ static void hashmap_entry_remove(struct hashmap_base *hb, struct hashmap_entry *
     if (hb->key_free) {
         hb->key_free(removed_entry->key);
     }
+
     --hb->size;
 
     /* Fill the free slot in the chain */
@@ -183,12 +184,8 @@ static int hashmap_rehash(struct hashmap_base *hb, size_t table_size)
     hb->table_size = table_size;
     hb->table = new_table;
 
-    if (!old_table) {
-        return 0;
-    }
-
     /* Rehash */
-    for (entry = old_table; entry < &old_table[old_size]; ++entry) {
+    for (entry = old_table; entry < old_table + old_size; ++entry) {
         if (!entry->key) {
             continue;
         }
@@ -261,6 +258,8 @@ void hashmap_base_set_key_alloc_funcs(struct hashmap_base *hb,
     void *(*key_dup_func)(const void *),
     void (*key_free_func)(void *))
 {
+    assert(hb->size == 0);
+
     hb->key_dup = key_dup_func;
     hb->key_free = key_free_func;
 }
@@ -293,7 +292,7 @@ int hashmap_base_reserve(struct hashmap_base *hb, size_t capacity)
 
 /*
  * Add a new entry to the hashmap. If an entry with a matching key
- * already exists -EEXIST is returned.
+ * is already present, -EEXIST is returned.
  * Returns 0 on success, or -errno on failure.
  */
 int hashmap_base_put(struct hashmap_base *hb, const void *key, void *data)
@@ -343,6 +342,70 @@ int hashmap_base_put(struct hashmap_base *hb, const void *key, void *data)
     entry->data = data;
     ++hb->size;
     return 0;
+}
+
+/*
+ * Add a new entry to the hashmap, or update an existing entry. If an entry
+ * with a matching key is already present, its data is updated. If old_data
+ * is non-null, the previous data pointer is assigned to it.
+ * Returns 1 on add, 0 on update, or -errno on failure.
+ */
+int hashmap_base_insert(struct hashmap_base *hb, const void *key, void *data, void **old_data)
+{
+    struct hashmap_entry *entry;
+    size_t table_size;
+    int r = 0;
+
+    if (!key || !data) {
+        return -EINVAL;
+    }
+
+    /* Preemptively rehash with 2x capacity if load factor is approaching 0.75 */
+    table_size = hashmap_calc_table_size(hb, hb->size);
+    if (table_size > hb->table_size) {
+        r = hashmap_rehash(hb, table_size);
+    }
+
+    /* Get the entry for this key */
+    entry = hashmap_entry_find(hb, key, true);
+    if (!entry) {
+        /*
+         * Cannot find an empty slot. Either out of memory,
+         * or hash or compare functions are malfunctioning.
+         */
+        if (r < 0) {
+            /* Return rehash error, if set */
+            return r;
+        }
+        return -EADDRNOTAVAIL;
+    }
+
+    if (!entry->key) {
+        /* Adding a new entry */
+        if (hb->key_dup) {
+            /* Allocate copy of key to simplify memory management */
+            entry->key = hb->key_dup(key);
+            if (!entry->key) {
+                return -ENOMEM;
+            }
+        } else {
+            entry->key = (void *)key;
+        }
+        ++hb->size;
+        r = 1;
+    }
+
+    /* Assign the previous data pointer if data was updated, otherwise NULL */
+    if (old_data) {
+        if (data == entry->data) {
+            *old_data = NULL;
+        } else {
+            *old_data = entry->data;
+        }
+    }
+
+    entry->data = data;
+    return r;
 }
 
 /*
@@ -436,7 +499,7 @@ struct hashmap_entry *hashmap_base_iter(const struct hashmap_base *hb,
  */
 bool hashmap_base_iter_valid(const struct hashmap_base *hb, const struct hashmap_entry *iter)
 {
-    return hb && iter && iter->key && iter >= hb->table && iter < &hb->table[hb->table_size];
+    return hb && iter && iter->key && iter >= hb->table && iter < hb->table + hb->table_size;
 }
 
 /*
@@ -448,7 +511,20 @@ bool hashmap_base_iter_next(const struct hashmap_base *hb, struct hashmap_entry 
     if (!*iter) {
         return false;
     }
-    return (*iter = hashmap_entry_get_populated(hb, *iter + 1)) != NULL;
+    *iter = hashmap_entry_get_populated(hb, *iter + 1);
+    return *iter != NULL;
+}
+
+/*
+ * Returns an iterator to the hashmap entry with the specified key.
+ * Returns NULL if there is no matching entry.
+ */
+struct hashmap_entry *hashmap_base_iter_find(const struct hashmap_base *hb, const void *key)
+{
+    if (!key) {
+        return NULL;
+    }
+    return hashmap_entry_find(hb, key, false);
 }
 
 /*
@@ -465,7 +541,8 @@ bool hashmap_base_iter_remove(struct hashmap_base *hb, struct hashmap_entry **it
         /* Remove entry if iterator is valid */
         hashmap_entry_remove(hb, *iter);
     }
-    return (*iter = hashmap_entry_get_populated(hb, *iter)) != NULL;
+    *iter = hashmap_entry_get_populated(hb, *iter);
+    return *iter != NULL;
 }
 
 /*

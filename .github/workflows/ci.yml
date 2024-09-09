@@ -2,9 +2,12 @@ name: CI
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
   pull_request:
-    branches: [ master ]
+    branches: [master]
+
+env:
+  BUILD_DIR: ${{ github.workspace }}/build
 
 jobs:
   build:
@@ -14,35 +17,29 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         compiler: [gcc, clang]
-        build_type: [debug, release]
+        build_type: [Debug, Release]
+
     steps:
-    - uses: actions/checkout@v4
-    - name: install-clang
-      if: matrix.compiler == 'clang'
-      run: |
-        sudo apt-get install -y clang
-        sudo update-alternatives --remove-all cc
-        sudo update-alternatives --install /usr/bin/cc cc /usr/bin/clang 14
-    - name: configure-debug
-      if: matrix.build_type == 'debug'
-      run: |
-        mkdir build
-        cd build
-        cmake -DCMAKE_BUILD_TYPE=Debug -DHASHMAP_BUILD_TESTS=ON -DHASHMAP_BUILD_EXAMPLES=ON ${GITHUB_WORKSPACE}
-    - name: configure-release
-      if: matrix.build_type == 'release'
-      run: |
-        mkdir build
-        cd build
-        cmake -DCMAKE_BUILD_TYPE=Release -DHASHMAP_BUILD_TESTS=ON -DHASHMAP_BUILD_EXAMPLES=ON ${GITHUB_WORKSPACE}
-    - name: make
-      run: |
-        make VERBOSE=1 -C build
-    - name: install
-      run: |
-        cd build
-        sudo make install
-    - name: test
-      run: |
-        cd build
-        ctest --output-on-failure
+      - uses: actions/checkout@v4
+
+      - name: Create build directory
+        run: mkdir -p ${{ env.BUILD_DIR }}
+
+      - name: Install Clang
+        if: matrix.compiler == 'clang'
+        run: |
+          sudo apt-get install -y clang
+          sudo update-alternatives --remove-all cc
+          sudo update-alternatives --install /usr/bin/cc cc /usr/bin/clang 15
+
+      - name: Configure CMake
+        run: cmake -B ${{ env.BUILD_DIR }} -S ${{ github.workspace }} -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DHASHMAP_BUILD_TESTS=ON -DHASHMAP_BUILD_EXAMPLES=ON
+
+      - name: Build
+        run: cmake --build ${{ env.BUILD_DIR }} --config ${{ matrix.build_type }}
+
+      - name: Install
+        run: sudo cmake --install ${{ env.BUILD_DIR }} --config ${{ matrix.build_type }}
+
+      - name: Test
+        run: ctest --output-on-failure --test-dir ${{ env.BUILD_DIR }}

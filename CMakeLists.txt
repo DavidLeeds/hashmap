@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.5)
 project(hashmap VERSION 2.0.0 LANGUAGES C)
 
-set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD 11)
 
 ##############################################
 # Build options
@@ -108,7 +108,7 @@ export(PACKAGE HashMap)
 
 if(HASHMAP_BUILD_TESTS)
     enable_testing()
-    add_subdirectory(test)
+    add_subdirectory(tests)
 endif()
 
 ##############################################
