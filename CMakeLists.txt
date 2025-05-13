@@ -1,7 +1,10 @@
-cmake_minimum_required(VERSION 3.5)
-project(hashmap VERSION 2.0.0 LANGUAGES C)
+cmake_minimum_required(VERSION 3.16)
+project(hashmap VERSION 2.1.0 LANGUAGES C)
 
-set(CMAKE_C_STANDARD 11)
+if(NOT DEFINED CMAKE_C_STANDARD)
+    set(CMAKE_C_STANDARD 23)
+    set(CMAKE_C_EXTENSIONS OFF)
+endif()
 
 ##############################################
 # Build options
@@ -36,7 +39,7 @@ target_include_directories(hashmap
         ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 target_compile_options(hashmap
-    PRIVATE $<$<C_COMPILER_ID:GNU>:-Wall -Werror>
+    PRIVATE -Wall -Werror
 )
 
 ##############################################
