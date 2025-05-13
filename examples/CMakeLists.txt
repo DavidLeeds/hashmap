@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.5)
-
 # Hashmap example
 add_executable(hashmap_example hashmap_example.c)
 target_compile_options(hashmap_example PRIVATE -Wall -Werror)

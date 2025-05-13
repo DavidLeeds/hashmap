@@ -38,9 +38,9 @@ struct blob *blob_load(void)
     if ((b = malloc(sizeof(*b))) == NULL) {
         return NULL;
     }
-    snprintf(b->key, sizeof(b->key), "%02lx", random() % 100);
-    b->data_len = random() % 10;
-    memset(b->data, random(), b->data_len);
+    snprintf(b->key, sizeof(b->key), "%02x", rand() % 100);
+    b->data_len = rand() % 10;
+    memset(b->data, rand(), b->data_len);
 
     return b;
 }
