@@ -1,0 +1,26 @@
+AlignConsecutiveMacros: AcrossEmptyLinesAndComments
+AllowShortBlocksOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLambdasOnASingleLine: Empty
+AllowShortLoopsOnASingleLine: false
+AlwaysBreakTemplateDeclarations: Yes
+BreakBeforeTernaryOperators: false
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterFunction: true
+ColumnLimit: 120
+ForEachMacros:
+  [
+    hashmap_foreach,
+    hashmap_foreach_safe,
+    hashmap_foreach_key,
+    hashmap_foreach_key_safe,
+    hashmap_foreach_data,
+    hashmap_foreach_data_safe,
+  ]
+IndentWidth: 4
+InsertBraces: true
+KeepEmptyLinesAtTheStartOfBlocks: false
+WhitespaceSensitiveMacros: [hashmap_*]
+SpaceBeforeParens: ControlStatementsExceptForEachMacros

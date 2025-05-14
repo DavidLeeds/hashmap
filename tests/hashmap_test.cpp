@@ -35,12 +35,14 @@ static void fill_map(auto *map, const std::unordered_map<std::string, std::strin
     }
 }
 
-TEST_CASE("hashmap", "[hashmap]") {
+TEST_CASE("hashmap", "[hashmap]")
+{
     /* Create a hashmap with string keys and values */
     HASHMAP(char, const char) map;
     hashmap_init(&map, hashmap_hash_string, strcmp);
 
-    SECTION("initial state") {
+    SECTION("initial state")
+    {
         REQUIRE(hashmap_empty(&map));
         REQUIRE(hashmap_size(&map) == 0);
 
@@ -48,7 +50,8 @@ TEST_CASE("hashmap", "[hashmap]") {
         REQUIRE(hashmap_capacity(&map) == 0);
     }
 
-    SECTION("reserve") {
+    SECTION("reserve")
+    {
         /* Reserve space for at least 1000 elements */
         constexpr size_t CAPACITY = 1000;
         REQUIRE(hashmap_reserve(&map, CAPACITY) == 0);
@@ -57,7 +60,8 @@ TEST_CASE("hashmap", "[hashmap]") {
         REQUIRE(hashmap_capacity(&map) >= CAPACITY);
     }
 
-    SECTION("put and get") {
+    SECTION("put and get")
+    {
         /* Input is large enough to prompt rehashes */
         auto input = make_kvs(1000);
 
@@ -75,7 +79,8 @@ TEST_CASE("hashmap", "[hashmap]") {
         }
     }
 
-    SECTION("insert and get") {
+    SECTION("insert and get")
+    {
         /* Input is large enough to prompt rehashes */
         auto input = make_kvs(1000);
 
@@ -93,13 +98,15 @@ TEST_CASE("hashmap", "[hashmap]") {
         }
     }
 
-    SECTION("put duplicate entry") {
+    SECTION("put duplicate entry")
+    {
         REQUIRE(hashmap_put(&map, "key1", "value1") == 0);
         REQUIRE(hashmap_put(&map, "key1", "value2") == -EEXIST);
         REQUIRE(hashmap_size(&map) == 1);
     }
 
-    SECTION("insert duplicate entry") {
+    SECTION("insert duplicate entry")
+    {
         const char *val1 = "value1";
         const char *val2 = "value2";
         const char *old_val;
@@ -122,7 +129,8 @@ TEST_CASE("hashmap", "[hashmap]") {
         REQUIRE(hashmap_size(&map) == 1);
     }
 
-    SECTION("get nonexistent entry") {
+    SECTION("get nonexistent entry")
+    {
         /* Empty map */
         REQUIRE(hashmap_get(&map, "key1") == nullptr);
 
@@ -131,15 +139,16 @@ TEST_CASE("hashmap", "[hashmap]") {
         REQUIRE(hashmap_get(&map, "key1") == nullptr);
     }
 
-
-    SECTION("contains") {
+    SECTION("contains")
+    {
         REQUIRE(hashmap_put(&map, "key1", "value1") == 0);
 
         REQUIRE(hashmap_contains(&map, "key1"));
         REQUIRE_FALSE(hashmap_contains(&map, "key2"));
     }
 
-    SECTION("remove") {
+    SECTION("remove")
+    {
         auto input = make_kvs(1000);
 
         fill_map(&map, input);
@@ -159,7 +168,8 @@ TEST_CASE("hashmap", "[hashmap]") {
         }
     }
 
-    SECTION("clear") {
+    SECTION("clear")
+    {
         auto input = make_kvs(1000);
 
         size_t empty_capacity = hashmap_capacity(&map);
@@ -180,7 +190,8 @@ TEST_CASE("hashmap", "[hashmap]") {
         REQUIRE(cleared_capacity == full_capacity);
     }
 
-    SECTION("reset") {
+    SECTION("reset")
+    {
         auto input = make_kvs(1000);
 
         size_t empty_capacity = hashmap_capacity(&map);
@@ -202,7 +213,8 @@ TEST_CASE("hashmap", "[hashmap]") {
         REQUIRE(cleared_capacity < full_capacity);
     }
 
-    SECTION("iteration with iterator") {
+    SECTION("iteration with iterator")
+    {
         auto input = make_kvs(200);
 
         fill_map(&map, input);
@@ -228,7 +240,8 @@ TEST_CASE("hashmap", "[hashmap]") {
         REQUIRE(count == input.size());
     }
 
-    SECTION("iteration with iterator and remove all") {
+    SECTION("iteration with iterator and remove all")
+    {
         auto input = make_kvs(200);
 
         fill_map(&map, input);
@@ -256,7 +269,8 @@ TEST_CASE("hashmap", "[hashmap]") {
         REQUIRE(hashmap_empty(&map));
     }
 
-    SECTION("iteration with iterator and remove some") {
+    SECTION("iteration with iterator and remove some")
+    {
         auto input = make_kvs(200);
 
         fill_map(&map, input);
@@ -289,7 +303,8 @@ TEST_CASE("hashmap", "[hashmap]") {
         REQUIRE(hashmap_size(&map) == input.size() / 2);
     }
 
-    SECTION("find with iterator") {
+    SECTION("find with iterator")
+    {
         HASHMAP_ITER(map) iter;
 
         REQUIRE(hashmap_put(&map, "key1", "value1") == 0);
@@ -305,7 +320,8 @@ TEST_CASE("hashmap", "[hashmap]") {
         REQUIRE_FALSE(hashmap_iter_valid(&iter));
     }
 
-    SECTION("iteration with foreach macros") {
+    SECTION("iteration with foreach macros")
+    {
         auto input = make_kvs(200);
 
         fill_map(&map, input);
@@ -350,7 +366,8 @@ TEST_CASE("hashmap", "[hashmap]") {
         }
     }
 
-    SECTION("iteration and removal with safe foreach macros") {
+    SECTION("iteration and removal with safe foreach macros")
+    {
         auto input = make_kvs(200);
 
         const char *key;
@@ -417,9 +434,12 @@ TEST_CASE("hashmap", "[hashmap]") {
         }
     }
 
-    SECTION("internal key allocation") {
+    SECTION("internal key allocation")
+    {
         const char *key = "key1";
-        auto strfree = [](char *k) { free(k); };
+        auto strfree = [](char *k) {
+            free(k);
+        };
 
         hashmap_set_key_alloc_funcs(&map, strdup, strfree);
 
@@ -433,8 +453,11 @@ TEST_CASE("hashmap", "[hashmap]") {
         hashmap_iter_remove(&iter);
     }
 
-    SECTION("bad hash functions") {
-        auto cmp = [](const int *a, const int *b) -> int { return a - b; };
+    SECTION("bad hash functions")
+    {
+        auto cmp = [](const int *a, const int *b) -> int {
+            return a - b;
+        };
 
         static std::unordered_map<int, std::string> input;
 
@@ -466,23 +489,32 @@ TEST_CASE("hashmap", "[hashmap]") {
             }
         };
 
-        SECTION("worst") {
+        SECTION("worst")
+        {
             /* Hash lookup collides with every entry */
-            auto hash = [](const int *) -> size_t { return 0; };
+            auto hash = [](const int *) -> size_t {
+                return 0;
+            };
 
             test(hash);
         }
 
-        SECTION("bad 1") {
+        SECTION("bad 1")
+        {
             /* Could cause clustering depending on implementation */
-            auto hash = [](const int *k) -> size_t { return *k; };
+            auto hash = [](const int *k) -> size_t {
+                return *k;
+            };
 
             test(hash);
         }
 
-        SECTION("bad 2") {
+        SECTION("bad 2")
+        {
             /* Could cause clustering depending on implementation */
-            auto hash = [](const int *k) -> size_t { return *k + *k; };
+            auto hash = [](const int *k) -> size_t {
+                return *k + *k;
+            };
 
             test(hash);
         }
