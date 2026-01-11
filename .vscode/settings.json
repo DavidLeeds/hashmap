@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "stdbool.h": "c",
+        "time.h": "c",
+        "hashmap_base.h": "c"
+    },
+    "zencoder.enableRepoIndexing": true
+}

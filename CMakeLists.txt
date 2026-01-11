@@ -121,3 +121,10 @@ if(HASHMAP_BUILD_EXAMPLES)
     add_subdirectory(examples)
 endif()
 
+##############################################
+# Build benchmark
+
+add_executable(hashmap_benchmark benchmark.c)
+target_compile_options(hashmap_benchmark PRIVATE -Wall -Werror -O3)
+target_link_libraries(hashmap_benchmark PRIVATE HashMap::HashMap)
+
