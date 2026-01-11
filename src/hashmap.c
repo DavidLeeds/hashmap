@@ -179,19 +179,21 @@ static int hashmap_rehash(struct hashmap_base *hb, size_t table_size)
     hb->table_size = table_size;
     hb->table = new_table;
 
-    /* Rehash */
-    for (entry = old_table; entry < old_table + old_size; ++entry) {
-        if (!entry->key) {
-            continue;
-        }
-        new_entry = hashmap_entry_find(hb, entry->key, true);
-        /* Failure indicates an algorithm bug */
-        assert(new_entry != NULL);
+    /* Rehash all existing entries */
+    if (old_table) {
+        for (entry = old_table; entry < old_table + old_size; ++entry) {
+            if (!entry->key) {
+                continue;
+            }
+            new_entry = hashmap_entry_find(hb, entry->key, true);
+            /* Failure indicates an algorithm bug */
+            assert(new_entry != NULL);
 
-        /* Shallow copy */
-        *new_entry = *entry;
+            /* Shallow copy */
+            *new_entry = *entry;
+        }
+        free(old_table);
     }
-    free(old_table);
     return 0;
 }
 
